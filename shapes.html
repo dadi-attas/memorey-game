@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>ממה מורכבת הצורה?</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔷</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff; user-select: none; touch-action: manipulation;
+  }
+  #app { height: 100vh; width: 100vw; display: flex; flex-direction: column; padding: 12px; gap: 8px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 0 0 auto; height: 56px; }
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff; padding: 11px 20px;
+    font-size: 17px; font-weight: 700;
+    border-radius: 12px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.94); }
+  .info {
+    flex: 1 1 auto; display: flex; justify-content: center; align-items: center;
+    gap: 28px; font-size: 20px; font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .info span b { color: #ffd86b; font-size: 26px; margin-inline-start: 6px; }
+
+  #sub-status {
+    text-align: center;
+    font-size: 22px; font-weight: 700;
+    flex: 0 0 auto;
+    min-height: 30px;
+    color: #ffd86b;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+  }
+
+  #composition-wrap {
+    flex: 1 1 auto;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 0; min-width: 0;
+    padding: 6px;
+  }
+  #composition-box {
+    background: #fffdf7;
+    border-radius: 22px;
+    box-shadow: inset 0 4px 18px rgba(0,0,0,0.15), 0 10px 28px rgba(0,0,0,0.4);
+    border: 3px solid rgba(255,255,255,0.5);
+    padding: 20px;
+    width: min(92%, 720px);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+  #composition-box.celebrate {
+    box-shadow: inset 0 0 30px rgba(86,195,77,0.35), 0 0 40px rgba(86,195,77,0.55);
+    animation: compositionCelebrate 0.8s ease;
+  }
+  @keyframes compositionCelebrate {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.03); }
+  }
+  #composition-svg {
+    width: 100%;
+    height: 100%;
+  }
+  /* All shapes: outline only, constant stroke width regardless of scale */
+  #composition-svg * {
+    vector-effect: non-scaling-stroke;
+  }
+
+  #choices {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    align-items: center;
+    padding: 8px;
+    min-height: 140px;
+    flex-wrap: wrap;
+  }
+  .shape-btn {
+    width: var(--btn-size, 110px);
+    height: var(--btn-size, 110px);
+    background: #fff;
+    color: #222;
+    border: 4px solid rgba(255,255,255,0.65);
+    border-radius: 18px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 8px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+    transition: transform 0.1s, box-shadow 0.15s, background 0.2s, border-color 0.15s;
+    font-family: inherit;
+  }
+  .shape-btn:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.5);
+  }
+  .shape-btn:active:not(:disabled) { transform: scale(0.96); }
+  .shape-btn .icon {
+    width: calc(var(--btn-size, 110px) * 0.55);
+    height: calc(var(--btn-size, 110px) * 0.55);
+    display: block;
+  }
+  .shape-btn .icon * {
+    vector-effect: non-scaling-stroke;
+  }
+  .shape-btn .label {
+    font-size: calc(var(--btn-size, 110px) * 0.15);
+    font-weight: 800;
+    color: #222;
+    line-height: 1;
+  }
+  .shape-btn.found {
+    background: #a8e6a1;
+    border-color: #3fa83f;
+    pointer-events: none;
+    animation: btnPulse 0.7s ease;
+  }
+  .shape-btn.wrong {
+    background: #ffb3b3;
+    border-color: #e55b5b;
+    animation: shake 0.5s ease;
+  }
+  @keyframes btnPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
+    50%      { transform: scale(1.1); box-shadow: 0 0 30px rgba(86,195,77,0.9); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+
+  /* Overlays, modals, end-game, goodbye — same pattern */
+  #overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  #overlay.show { display: flex; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 30px 44px; border-radius: 22px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+    animation: pop 0.4s ease;
+  }
+  @keyframes pop {
+    0%   { transform: scale(0.5); opacity: 0; }
+    60%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  .modal .emoji { font-size: 64px; margin-bottom: 10px; }
+  .modal h2 { font-size: 30px; margin-bottom: 10px; }
+  .modal p { font-size: 18px; margin-bottom: 20px; opacity: 0.95; }
+  .modal .btn { background: #fff; color: #333; font-size: 18px; padding: 12px 28px; }
+  .modal .btn:hover { background: #ffd86b; }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal p { font-size: 15px; margin-bottom: 14px; opacity: 0.9; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס</button>
+    <div class="info">
+      <span>רמה: <b id="level-num">1</b></span>
+      <span><span id="progress-label">נכונים:</span> <b id="progress-num">0/3</b></span>
+    </div>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="sub-status">מצאת 0 מתוך 2</div>
+  <div id="composition-wrap">
+    <div id="composition-box">
+      <svg id="composition-svg" viewBox="0 0 400 300" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+  </div>
+  <div id="choices"></div>
+</div>
+
+<div id="overlay">
+  <div class="modal">
+    <div class="emoji" id="modal-emoji">🌟</div>
+    <h2 id="modal-title">רמה חדשה!</h2>
+    <p id="modal-text"></p>
+    <button id="modal-btn" class="btn">המשך</button>
+  </div>
+</div>
+
+<script>
+// Levels progress by introducing one new shape each time, starting from the
+// 3 most basic shapes. Rotation is restricted to 90° multiples early on so the
+// square stays a square (and doesn't visually become a diamond at 45°).
+const LEVELS = [
+  { shapesInImage: 2, totalButtons: 4, pool: ['circle','triangle','square','ellipse'],                           freeRotation: false, successesToAdvance: 3 },
+  { shapesInImage: 3, totalButtons: 5, pool: ['circle','triangle','square','ellipse','star'],                    freeRotation: false, successesToAdvance: 3 },
+  { shapesInImage: 4, totalButtons: 6, pool: ['circle','triangle','square','ellipse','star','heart'],            freeRotation: true,  successesToAdvance: 3 },
+  { shapesInImage: 5, totalButtons: 7, pool: ['circle','triangle','square','ellipse','star','heart','hexagon'],  freeRotation: true,  successesToAdvance: Infinity },
+];
+
+// Base shape library — 7 clearly-distinct shapes. Each carries a color used for
+// the filled button icon at the bottom (the composition itself stays outline-only).
+const SHAPES = {
+  circle:   { name: 'עיגול',   color: '#ff9f40', svg: '<circle cx="50" cy="50" r="40"/>' },
+  triangle: { name: 'משולש',   color: '#ffd63a', svg: '<polygon points="50,10 10,85 90,85"/>' },
+  square:   { name: 'ריבוע',   color: '#3498db', svg: '<rect x="12" y="12" width="76" height="76"/>' },
+  ellipse:  { name: 'אליפסה',  color: '#4caf50', svg: '<ellipse cx="50" cy="50" rx="44" ry="28"/>' },
+  star:     { name: 'כוכב',    color: '#e84393', svg: '<polygon points="50,8 61,37 92,37 66,56 76,87 50,68 24,87 34,56 8,37 39,37"/>' },
+  heart:    { name: 'לב',      color: '#e74c3c', svg: '<path d="M50,86 C50,86 10,62 10,36 C10,20 23,10 35,10 C43,10 49,16 50,25 C51,16 57,10 65,10 C77,10 90,20 90,36 C90,62 50,86 50,86 Z"/>' },
+  hexagon:  { name: 'משושה',   color: '#9b59b6', svg: '<polygon points="50,10 85,30 85,70 50,90 15,70 15,30"/>' },
+};
+
+const SUCCESSES_TO_ADVANCE = 3;
+const MISSES_TO_DESCEND = 5;
+const INACTIVITY_MS = 12000;
+const AUTO_END_MS = 10000;
+const ROUND_END_DELAY_MS = 1100;
+
+const compositionSvg = document.getElementById('composition-svg');
+const compositionBox = document.getElementById('composition-box');
+const choicesEl = document.getElementById('choices');
+const subStatusEl = document.getElementById('sub-status');
+const levelNumEl = document.getElementById('level-num');
+const progressLabelEl = document.getElementById('progress-label');
+const progressNumEl = document.getElementById('progress-num');
+const btnReset = document.getElementById('btn-reset');
+const btnEnd = document.getElementById('btn-end');
+const overlay = document.getElementById('overlay');
+const modalEmoji = document.getElementById('modal-emoji');
+const modalTitle = document.getElementById('modal-title');
+const modalText = document.getElementById('modal-text');
+const modalBtn = document.getElementById('modal-btn');
+
+let levelIdx = 0;
+let successCount = 0;
+let missStreak = 0;
+let lastLevelScore = 0;
+let state = 'playing';
+let correctShapesInRound = new Set();
+let foundShapes = new Set();
+let wrongAttempts = 0;
+let descendQueued = false;
+let inactivityTimer = null;
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function rand(a, b) { return a + Math.random() * (b - a); }
+
+// --- Audio ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.15, startOffset = 0, freqEnd = null }) {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  const t0 = ac.currentTime + startOffset;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function playSuccess() {
+  tone({ freq: 523.25, type: 'sine', duration: 0.12, volume: 0.16 });
+  tone({ freq: 659.25, type: 'sine', duration: 0.13, volume: 0.16, startOffset: 0.08 });
+}
+function playComplete() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.18, volume: 0.2, startOffset: i * 0.1 });
+  });
+}
+function playError() { tone({ freq: 260, freqEnd: 150, type: 'sawtooth', duration: 0.3, volume: 0.13 }); }
+function playLevelUp() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.18, volume: 0.18, startOffset: i * 0.1 });
+  });
+}
+
+// --- Layout ---
+function layoutChoices() {
+  const w = window.innerWidth;
+  const n = LEVELS[levelIdx].totalButtons;
+  const gap = 14;
+  const availW = w - 24 - gap * (n - 1);
+  const choicesH = choicesEl.clientHeight - 16;
+  const btnSize = Math.max(90, Math.min(Math.floor(availW / n), choicesH, 140));
+  document.querySelectorAll('.shape-btn').forEach(el => {
+    el.style.setProperty('--btn-size', btnSize + 'px');
+  });
+}
+
+// --- Render composition ---
+// Shapes placed in a grid so they DON'T overlap — each in its own "cell" with
+// random assignment to cells for visual variety. Outline only (no fill).
+function renderComposition(shapeKeys, freeRotation) {
+  const n = shapeKeys.length;
+  // Grid dimensions based on count
+  let cols, rows;
+  if (n <= 2)      { cols = n; rows = 1; }
+  else if (n === 3){ cols = 3; rows = 1; }
+  else if (n === 4){ cols = 2; rows = 2; }
+  else             { cols = 3; rows = 2; } // 5
+
+  const canvasW = 400, canvasH = 300;
+  const cellW = canvasW / cols;
+  const cellH = canvasH / rows;
+  // Scale keeps shape within ~75% of the smaller cell dimension
+  const scale = Math.min(cellW, cellH) * 0.75 / 100;
+
+  // Shuffle the available slots so shapes get random-looking placements
+  const slots = [];
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      slots.push({ r, c });
+    }
+  }
+  shuffle(slots);
+
+  const parts = [];
+  const rightAngles = [0, 90, 180, 270];
+  shapeKeys.forEach((key, i) => {
+    const shape = SHAPES[key];
+    const slot = slots[i];
+    const cx = cellW * (slot.c + 0.5) + (Math.random() - 0.5) * cellW * 0.08;
+    const cy = cellH * (slot.r + 0.5) + (Math.random() - 0.5) * cellH * 0.08;
+    const angle = freeRotation ? rand(0, 360) : pick(rightAngles);
+    const transform = `translate(${cx.toFixed(1)},${cy.toFixed(1)}) rotate(${angle.toFixed(1)}) scale(${scale.toFixed(2)}) translate(-50,-50)`;
+    parts.push(`<g transform="${transform}">${shape.svg}</g>`);
+  });
+  compositionSvg.innerHTML = `<g fill="none" stroke="#111" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">${parts.join('')}</g>`;
+}
+
+function renderChoices(shapeKeys) {
+  choicesEl.innerHTML = '';
+  shapeKeys.forEach(key => {
+    const shape = SHAPES[key];
+    const btn = document.createElement('button');
+    btn.className = 'shape-btn';
+    btn.dataset.key = key;
+    // Choice buttons show the shape FILLED with a distinct color + dark outline
+    btn.innerHTML = `
+      <svg class="icon" viewBox="0 0 100 100" preserveAspectRatio="xMidYMid meet">
+        <g fill="${shape.color}" stroke="#111" stroke-width="4" stroke-linejoin="round" stroke-linecap="round">${shape.svg}</g>
+      </svg>
+      <div class="label">${shape.name}</div>
+    `;
+    btn.addEventListener('click', () => onChoice(key, btn));
+    choicesEl.appendChild(btn);
+  });
+}
+
+// --- Round flow ---
+function startRound() {
+  const lvl = LEVELS[levelIdx];
+  const pool = shuffle([...lvl.pool]);
+  const correct = pool.slice(0, lvl.shapesInImage);
+  const distractorCount = lvl.totalButtons - lvl.shapesInImage;
+  const distractors = pool.slice(lvl.shapesInImage, lvl.shapesInImage + distractorCount);
+  const allChoices = shuffle([...correct, ...distractors]);
+
+  correctShapesInRound = new Set(correct);
+  foundShapes = new Set();
+  wrongAttempts = 0;
+  state = 'playing';
+
+  renderComposition(correct, lvl.freeRotation);
+  renderChoices(allChoices);
+  compositionBox.classList.remove('celebrate');
+
+  updateSubStatus();
+  updateInfo();
+  resetInactivity();
+  requestAnimationFrame(layoutChoices);
+}
+
+function onChoice(key, btnEl) {
+  if (state !== 'playing') return;
+  if (foundShapes.has(key)) return; // already found
+  getAudio();
+  resetInactivity();
+
+  if (correctShapesInRound.has(key)) {
+    // Correct
+    foundShapes.add(key);
+    btnEl.classList.add('found');
+    playSuccess();
+    updateSubStatus();
+
+    if (foundShapes.size === correctShapesInRound.size) {
+      state = 'result';
+      setTimeout(onRoundComplete, 600);
+    }
+  } else {
+    // Wrong
+    btnEl.classList.add('wrong');
+    playError();
+    if (wrongAttempts === 0) {
+      missStreak++;
+      successCount = 0;
+      if (missStreak >= MISSES_TO_DESCEND && levelIdx > 0) {
+        descendQueued = true;
+        missStreak = 0;
+      }
+    }
+    wrongAttempts++;
+    setTimeout(() => btnEl.classList.remove('wrong'), 550);
+  }
+}
+
+function onRoundComplete() {
+  compositionBox.classList.add('celebrate');
+  playComplete();
+  subStatusEl.textContent = 'מצוין! מצאת את כל הצורות';
+
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (wrongAttempts === 0) {
+    successCount++;
+    missStreak = 0;
+  }
+  if (isLast) lastLevelScore++;
+  updateInfo();
+
+  setTimeout(() => {
+    if (!isLast && successCount >= SUCCESSES_TO_ADVANCE) {
+      showLevelUp();
+    } else if (descendQueued && levelIdx > 0) {
+      levelIdx--;
+      successCount = 0;
+      missStreak = 0;
+      descendQueued = false;
+      startRound();
+    } else {
+      startRound();
+    }
+  }, ROUND_END_DELAY_MS);
+}
+
+function updateSubStatus() {
+  subStatusEl.textContent = `מצאת ${foundShapes.size} מתוך ${correctShapesInRound.size}`;
+}
+
+function showLevelUp() {
+  modalEmoji.textContent = '🌟';
+  modalTitle.textContent = 'רמה חדשה!';
+  const next = LEVELS[levelIdx + 1];
+  modalText.textContent = `עולים ל-${next.shapesInImage} צורות`;
+  modalBtn.textContent = 'המשך';
+  modalBtn.onclick = () => {
+    overlay.classList.remove('show');
+    levelIdx++;
+    successCount = 0;
+    missStreak = 0;
+    startRound();
+  };
+  overlay.classList.add('show');
+  playLevelUp();
+}
+
+function updateInfo() {
+  levelNumEl.textContent = levelIdx + 1;
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (isLast) {
+    progressLabelEl.textContent = 'ניקוד:';
+    progressNumEl.textContent = lastLevelScore;
+  } else {
+    progressLabelEl.textContent = 'נכונים:';
+    progressNumEl.textContent = `${successCount}/${SUCCESSES_TO_ADVANCE}`;
+  }
+}
+
+// --- Inactivity ---
+function resetInactivity() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(showInactivityDialog, INACTIVITY_MS);
+}
+function showInactivityDialog() {
+  if (state !== 'playing') return;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>12 שניות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  let to;
+  const cleanup = (choice) => {
+    if (to) { clearTimeout(to); to = null; }
+    if (o.parentNode) o.remove();
+    if (choice === 'yes') { state = 'playing'; resetInactivity(); }
+    else endGame();
+  };
+  o.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  o.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+  document.body.appendChild(o);
+}
+
+// --- Reset / End ---
+btnReset.addEventListener('click', () => {
+  getAudio();
+  overlay.classList.remove('show');
+  levelIdx = 0;
+  successCount = 0;
+  missStreak = 0;
+  lastLevelScore = 0;
+  descendQueued = false;
+  startRound();
+});
+
+function confirmEndGame() {
+  clearTimeout(inactivityTimer);
+  const prev = state;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  o.querySelector('.yes').addEventListener('click', () => { o.remove(); endGame(); });
+  o.querySelector('.no').addEventListener('click', () => {
+    o.remove();
+    state = prev;
+    resetInactivity();
+  });
+  document.body.appendChild(o);
+}
+function endGame() {
+  clearTimeout(inactivityTimer);
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+btnEnd.addEventListener('click', confirmEndGame);
+
+window.addEventListener('resize', layoutChoices);
+
+startRound();
+</script>
+</body>
+</html>

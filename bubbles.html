@@ -1,0 +1,516 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>בועות סבון</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🫧</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(180deg, #6cc4f0 0%, #a8d8f5 40%, #c9e8f7 80%, #e0f2fc 100%);
+    color: #fff; user-select: none; touch-action: manipulation;
+  }
+  #app {
+    height: 100vh; width: 100vw;
+    display: flex; flex-direction: column;
+    padding: 10px; gap: 8px;
+    position: relative;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex: 0 0 auto; height: 56px;
+    position: relative; z-index: 10;
+  }
+  .btn {
+    background: rgba(255, 255, 255, 0.6);
+    border: 2px solid rgba(255, 255, 255, 0.85);
+    color: #1e3c72; padding: 11px 22px;
+    font-size: 17px; font-weight: 800;
+    border-radius: 14px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.85); }
+  .btn:active { transform: scale(0.94); }
+
+  .counters {
+    flex: 1 1 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 20px;
+  }
+  .counter {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 22px;
+    font-size: 24px; font-weight: 800;
+    border-radius: 14px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    border: 2px solid rgba(255,255,255,0.7);
+    min-width: 110px;
+    justify-content: center;
+    transition: transform 0.1s;
+  }
+  .counter .icon { font-size: 22px; }
+  .counter.green {
+    background: linear-gradient(135deg, #7dd87d 0%, #3fa83f 100%);
+    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+  .counter.red {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%);
+    color: #fff; text-shadow: 0 1px 2px rgba(0,0,0,0.3);
+  }
+  .counter.bump { animation: counterBump 0.38s ease; }
+  @keyframes counterBump {
+    0%   { transform: scale(1) rotate(0); }
+    25%  { transform: scale(1.18) rotate(-4deg); }
+    55%  { transform: scale(1.12) rotate(4deg); }
+    80%  { transform: scale(1.05) rotate(-1deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+
+  #game {
+    flex: 1 1 auto;
+    position: relative;
+    min-height: 0; min-width: 0;
+    border-radius: 18px;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 50% 100%, rgba(255,255,255,0.4) 0%, transparent 70%);
+    box-shadow: inset 0 2px 10px rgba(255,255,255,0.35);
+  }
+
+  .bubble {
+    position: absolute;
+    left: 0; top: 0;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 32% 28%,
+        rgba(255,255,255,0.95) 0%,
+        rgba(220,240,255,0.55) 18%,
+        rgba(170,215,245,0.35) 45%,
+        rgba(130,190,230,0.25) 75%,
+        rgba(100,170,220,0.2) 100%);
+    box-shadow:
+      inset -3px -5px 12px rgba(80,140,200,0.35),
+      inset 3px 4px 10px rgba(255,255,255,0.6),
+      0 4px 14px rgba(100,150,200,0.35);
+    cursor: pointer;
+    will-change: transform;
+  }
+  .bubble::before {
+    content: '';
+    position: absolute;
+    top: 14%; left: 22%;
+    width: 26%; height: 22%;
+    background: radial-gradient(ellipse, rgba(255,255,255,0.95) 0%, rgba(255,255,255,0.25) 60%, transparent 100%);
+    border-radius: 50%;
+    pointer-events: none;
+  }
+  .bubble.popped {
+    animation: pop 0.35s ease forwards;
+    pointer-events: none;
+  }
+  @keyframes pop {
+    0%   { transform: var(--pos) scale(1); opacity: 1; }
+    40%  { transform: var(--pos) scale(1.35); opacity: 0.85; }
+    100% { transform: var(--pos) scale(1.6); opacity: 0; }
+  }
+
+  #child {
+    position: absolute;
+    bottom: 8px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: var(--child-size, 92px);
+    line-height: 1;
+    filter: drop-shadow(0 4px 8px rgba(0,0,0,0.2));
+    animation: bob 3.6s ease-in-out infinite;
+    z-index: 2;
+    pointer-events: none;
+  }
+  @keyframes bob {
+    0%, 100% { transform: translateX(-50%) translateY(0); }
+    50%      { transform: translateX(-50%) translateY(-6px); }
+  }
+
+  .splash {
+    position: absolute;
+    pointer-events: none;
+    border-radius: 50%;
+    border: 3px solid rgba(255,255,255,0.85);
+    animation: splash 0.45s ease-out forwards;
+  }
+  @keyframes splash {
+    0%   { transform: var(--pos) scale(0.8); opacity: 0.9; }
+    100% { transform: var(--pos) scale(1.8); opacity: 0; }
+  }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal p { font-size: 15px; margin-bottom: 14px; opacity: 0.9; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">התחל מחדש</button>
+    <div class="counters">
+      <div id="counter-green" class="counter green">
+        <span class="icon">🫧</span>
+        <span id="popped-num">0</span>
+      </div>
+      <div id="counter-red" class="counter red">
+        <span class="icon">💨</span>
+        <span id="missed-num">0</span>
+      </div>
+    </div>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="game">
+    <div id="child">🧒</div>
+  </div>
+</div>
+
+<script>
+// --- Hidden difficulty matrix ---
+const LEVELS = [
+  { popsToAdvance: 5,        sizeRange: [78, 108], speedRange: [25, 35],  spawnMs: 3000, wobble: 10 },
+  { popsToAdvance: 5,        sizeRange: [70, 100], speedRange: [30, 42],  spawnMs: 2500, wobble: 12 },
+  { popsToAdvance: 7,        sizeRange: [62, 92],  speedRange: [35, 50],  spawnMs: 2200, wobble: 14 },
+  { popsToAdvance: 7,        sizeRange: [54, 82],  speedRange: [42, 58],  spawnMs: 1800, wobble: 16 },
+  { popsToAdvance: 8,        sizeRange: [46, 72],  speedRange: [50, 70],  spawnMs: 1500, wobble: 18 },
+  { popsToAdvance: 8,        sizeRange: [40, 64],  speedRange: [60, 85],  spawnMs: 1300, wobble: 20 },
+  { popsToAdvance: Infinity, sizeRange: [34, 56],  speedRange: [75, 100], spawnMs: 1100, wobble: 22 },
+];
+
+const gameEl = document.getElementById('game');
+const childEl = document.getElementById('child');
+const poppedNumEl = document.getElementById('popped-num');
+const missedNumEl = document.getElementById('missed-num');
+const counterGreen = document.getElementById('counter-green');
+const counterRed = document.getElementById('counter-red');
+const btnReset = document.getElementById('btn-reset');
+
+let bubbles = [];
+let lastSpawnTime = 0;
+let lastFrameTime = null;
+let popsSinceStart = 0;
+let levelIdx = 0;
+let poppedTotal = 0;
+let missedTotal = 0;
+let rafId = null;
+let consecutiveMisses = 0;
+let paused = false;
+const MISSES_TO_ASK = 5;
+
+function rand(min, max) { return min + Math.random() * (max - min); }
+
+// --- Audio ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function playPop() {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = 'sine';
+  const t0 = ac.currentTime;
+  osc.frequency.setValueAtTime(1300, t0);
+  osc.frequency.exponentialRampToValueAtTime(380, t0 + 0.12);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(0.22, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.14);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + 0.17);
+  // Tiny "smack" layer
+  const osc2 = ac.createOscillator();
+  const gain2 = ac.createGain();
+  osc2.type = 'triangle';
+  osc2.frequency.setValueAtTime(2000, t0);
+  osc2.frequency.exponentialRampToValueAtTime(600, t0 + 0.05);
+  gain2.gain.setValueAtTime(0.12, t0);
+  gain2.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.07);
+  osc2.connect(gain2).connect(ac.destination);
+  osc2.start(t0);
+  osc2.stop(t0 + 0.09);
+}
+
+function playMiss() {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = 'sawtooth';
+  const t0 = ac.currentTime;
+  osc.frequency.setValueAtTime(260, t0);
+  osc.frequency.linearRampToValueAtTime(150, t0 + 0.25);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(0.10, t0 + 0.02);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.28);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + 0.3);
+}
+
+// --- Level management (hidden from user) ---
+function currentLevel() { return LEVELS[levelIdx]; }
+
+function maybeAdvanceLevel() {
+  const lvl = currentLevel();
+  if (popsSinceStart >= lvl.popsToAdvance && levelIdx < LEVELS.length - 1) {
+    levelIdx++;
+    popsSinceStart = 0;
+  }
+}
+
+// --- Spawn bubbles ---
+function spawnBubble() {
+  const lvl = currentLevel();
+  const size = rand(lvl.sizeRange[0], lvl.sizeRange[1]);
+  const speed = rand(lvl.speedRange[0], lvl.speedRange[1]);
+  const gameRect = gameEl.getBoundingClientRect();
+  const childRect = childEl.getBoundingClientRect();
+  const childCenterX = childRect.left - gameRect.left + childRect.width / 2;
+  const spawnSpreadX = Math.min(180, gameRect.width * 0.35);
+  const baseX = childCenterX + rand(-spawnSpreadX, spawnSpreadX) - size / 2;
+  const clampedX = Math.max(6, Math.min(gameRect.width - size - 6, baseX));
+  const startY = gameRect.height - childRect.height - size * 0.4;
+
+  const bubble = {
+    el: document.createElement('div'),
+    size,
+    speed,
+    x: clampedX,
+    y: startY,
+    phase: rand(0, Math.PI * 2),
+    wobbleAmp: lvl.wobble,
+    wobbleFreq: rand(0.8, 1.6),
+    dead: false,
+  };
+  bubble.el.className = 'bubble';
+  bubble.el.style.width = size + 'px';
+  bubble.el.style.height = size + 'px';
+  bubble.el.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (bubble.dead) return;
+    popBubble(bubble);
+  });
+  gameEl.appendChild(bubble.el);
+  bubbles.push(bubble);
+}
+
+function popBubble(bubble) {
+  bubble.dead = true;
+  getAudio();
+  playPop();
+
+  // Trigger pop animation — keep final transform so it animates in place
+  bubble.el.style.setProperty('--pos', `translate3d(${bubble.xDisplay ?? bubble.x}px, ${bubble.y}px, 0)`);
+  bubble.el.classList.add('popped');
+
+  // Splash ring
+  const ring = document.createElement('div');
+  ring.className = 'splash';
+  ring.style.width = bubble.size + 'px';
+  ring.style.height = bubble.size + 'px';
+  ring.style.setProperty('--pos', `translate3d(${bubble.xDisplay ?? bubble.x}px, ${bubble.y}px, 0)`);
+  gameEl.appendChild(ring);
+  setTimeout(() => ring.remove(), 500);
+
+  setTimeout(() => bubble.el.remove(), 400);
+
+  poppedTotal++;
+  popsSinceStart++;
+  consecutiveMisses = 0;
+  poppedNumEl.textContent = poppedTotal;
+  bumpCounter(counterGreen);
+  maybeAdvanceLevel();
+}
+
+function missBubble(bubble) {
+  bubble.dead = true;
+  bubble.el.remove();
+  missedTotal++;
+  consecutiveMisses++;
+  missedNumEl.textContent = missedTotal;
+  bumpCounter(counterRed);
+  playMiss();
+  if (consecutiveMisses >= MISSES_TO_ASK) {
+    showContinueDialog();
+  }
+}
+
+function bumpCounter(el) {
+  el.classList.remove('bump');
+  void el.offsetWidth;
+  el.classList.add('bump');
+}
+
+// --- Main loop ---
+function loop(t) {
+  if (paused) {
+    rafId = requestAnimationFrame(loop);
+    lastFrameTime = t;
+    return;
+  }
+  if (lastFrameTime === null) lastFrameTime = t;
+  const dt = Math.min(0.05, (t - lastFrameTime) / 1000);
+  lastFrameTime = t;
+
+  // Spawn timing
+  if (t - lastSpawnTime >= currentLevel().spawnMs) {
+    spawnBubble();
+    lastSpawnTime = t;
+  }
+
+  const gameW = gameEl.clientWidth;
+  // Update bubbles
+  for (const b of bubbles) {
+    if (b.dead) continue;
+    b.y -= b.speed * dt;
+    b.phase += dt * b.wobbleFreq;
+    b.xDisplay = Math.max(4, Math.min(gameW - b.size - 4, b.x + Math.sin(b.phase) * b.wobbleAmp));
+    b.el.style.transform = `translate3d(${b.xDisplay}px, ${b.y}px, 0)`;
+    if (b.y + b.size < 0) {
+      missBubble(b);
+    }
+  }
+  bubbles = bubbles.filter(b => !b.dead);
+
+  rafId = requestAnimationFrame(loop);
+}
+
+function resetGame() {
+  if (rafId) cancelAnimationFrame(rafId);
+  bubbles.forEach(b => b.el.remove());
+  bubbles = [];
+  poppedTotal = 0;
+  missedTotal = 0;
+  popsSinceStart = 0;
+  consecutiveMisses = 0;
+  levelIdx = 0;
+  paused = false;
+  poppedNumEl.textContent = 0;
+  missedNumEl.textContent = 0;
+  lastSpawnTime = 0;
+  lastFrameTime = null;
+  rafId = requestAnimationFrame(loop);
+}
+
+// --- Continue/End dialog after 5 consecutive misses ---
+function showContinueDialog() {
+  paused = true;
+  // Clear existing bubbles so they don't keep piling when dialog is up
+  bubbles.forEach(b => { b.el.remove(); b.dead = true; });
+  bubbles = [];
+
+  const overlay = document.createElement('div');
+  overlay.className = 'end-overlay';
+  overlay.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>5 בועות פספסת ברצף</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+
+  let timeoutId;
+  const cleanup = (choice) => {
+    if (timeoutId) { clearTimeout(timeoutId); timeoutId = null; }
+    if (overlay.parentNode) overlay.remove();
+    if (choice === 'yes') {
+      consecutiveMisses = 0;
+      paused = false;
+      lastSpawnTime = performance.now();
+      lastFrameTime = null;
+    } else {
+      endGame();
+    }
+  };
+  overlay.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  overlay.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  // Auto-end after 10 seconds with no choice
+  timeoutId = setTimeout(() => cleanup('no'), 10000);
+  document.body.appendChild(overlay);
+}
+
+btnReset.addEventListener('click', () => {
+  getAudio();
+  resetGame();
+});
+
+// Scale child emoji to a reasonable size relative to viewport
+function layoutChild() {
+  const h = gameEl.clientHeight;
+  const size = Math.max(70, Math.min(140, Math.floor(h * 0.18)));
+  childEl.style.setProperty('--child-size', size + 'px');
+}
+window.addEventListener('resize', layoutChild);
+
+// Start
+layoutChild();
+rafId = requestAnimationFrame(loop);
+
+// --- End-game flow (manual via "סיום" button) ---
+function confirmEndGame() {
+  paused = true;
+  const overlay = document.createElement('div');
+  overlay.className = 'end-overlay';
+  overlay.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  overlay.querySelector('.yes').addEventListener('click', () => { overlay.remove(); endGame(); });
+  overlay.querySelector('.no').addEventListener('click', () => {
+    overlay.remove();
+    paused = false;
+    lastFrameTime = null;
+  });
+  document.body.appendChild(overlay);
+}
+function endGame() {
+  if (rafId) cancelAnimationFrame(rafId);
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+document.getElementById('btn-end').addEventListener('click', confirmEndGame);
+</script>
+</body>
+</html>

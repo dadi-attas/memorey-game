@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>השלמת השעון</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🕐</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff; user-select: none; touch-action: none;
+  }
+  #app { height: 100vh; width: 100vw; display: flex; flex-direction: column; padding: 12px; gap: 8px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 0 0 auto; height: 56px; }
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff; padding: 11px 20px;
+    font-size: 17px; font-weight: 700;
+    border-radius: 12px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.94); }
+  .info {
+    flex: 1 1 auto; display: flex; justify-content: center; align-items: center;
+    gap: 28px; font-size: 20px; font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .info span b { color: #ffd86b; font-size: 26px; margin-inline-start: 6px; }
+
+  #status {
+    text-align: center;
+    font-size: 20px; font-weight: 700;
+    flex: 0 0 auto;
+    min-height: 28px;
+    color: #ffd86b;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+  }
+
+  #clock-wrap {
+    flex: 1 1 auto;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 0; min-width: 0;
+    padding: 6px;
+  }
+  #clock-face {
+    position: relative;
+    width: var(--clock-size, 420px);
+    height: var(--clock-size, 420px);
+    border-radius: 50%;
+    background: radial-gradient(circle at 35% 30%, #fffdf7 0%, #f4e9cf 70%, #d9c38e 100%);
+    box-shadow: inset 0 0 40px rgba(0,0,0,0.25),
+                0 12px 32px rgba(0,0,0,0.5),
+                0 0 0 12px #8b5a2b,
+                0 0 0 14px #6b4016;
+    transition: box-shadow 0.5s;
+  }
+  #clock-face.celebrate {
+    box-shadow: inset 0 0 50px rgba(86,195,77,0.45),
+                0 0 60px rgba(86,195,77,0.8),
+                0 0 0 12px #3fa83f,
+                0 0 0 14px #2a8a2a;
+  }
+
+  .slot {
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%)
+               translate(var(--tx, 0), var(--ty, 0));
+    width: var(--slot-size, 56px);
+    height: var(--slot-size, 56px);
+    display: flex; align-items: center; justify-content: center;
+    font-size: calc(var(--slot-size, 56px) * 0.56);
+    font-weight: 900;
+    color: #222;
+    border-radius: 12px;
+    transition: background 0.25s, border-color 0.25s, color 0.25s, transform 0.15s;
+    font-family: "David", "Tahoma", serif;
+  }
+  .slot.anchor {
+    /* Pre-filled; no border */
+  }
+  .slot.empty {
+    background: rgba(0,0,0,0.12);
+    border: 3px dashed #c97a00;
+    color: transparent;
+  }
+  .slot.filled {
+    background: #a8e6a1;
+    border: 3px solid #3fa83f;
+    color: #14532d;
+    animation: slotFill 0.5s ease;
+  }
+  .slot.slot-wrong {
+    background: #ffb3b3;
+    border-color: #e55b5b;
+    animation: shake 0.5s ease;
+  }
+  .slot.drop-hover {
+    background: rgba(255,216,107,0.4);
+    border-color: #ffd86b;
+  }
+  @keyframes slotFill {
+    0%   { transform: translate(-50%, -50%) translate(var(--tx, 0), var(--ty, 0)) scale(0.4); }
+    60%  { transform: translate(-50%, -50%) translate(var(--tx, 0), var(--ty, 0)) scale(1.2); }
+    100% { transform: translate(-50%, -50%) translate(var(--tx, 0), var(--ty, 0)) scale(1); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translate(-50%, -50%) translate(var(--tx, 0), var(--ty, 0)) translateX(0); }
+    20% { transform: translate(-50%, -50%) translate(var(--tx, 0), var(--ty, 0)) translateX(-8px); }
+    40% { transform: translate(-50%, -50%) translate(var(--tx, 0), var(--ty, 0)) translateX(8px); }
+    60% { transform: translate(-50%, -50%) translate(var(--tx, 0), var(--ty, 0)) translateX(-5px); }
+    80% { transform: translate(-50%, -50%) translate(var(--tx, 0), var(--ty, 0)) translateX(5px); }
+  }
+
+  /* Clock hands (celebration) */
+  .hand {
+    position: absolute;
+    left: 50%; top: 50%;
+    background: #2c3e50;
+    border-radius: 4px;
+    transform-origin: 50% 100%;
+    opacity: 0;
+    transition: opacity 0.2s;
+    pointer-events: none;
+  }
+  .hand.hour {
+    width: 7px;
+    height: 28%;
+    transform: translate(-50%, -100%) rotate(0deg);
+  }
+  .hand.minute {
+    width: 4px;
+    height: 38%;
+    transform: translate(-50%, -100%) rotate(0deg);
+  }
+  #clock-face.celebrate .hand { opacity: 1; }
+  #clock-face.celebrate .hand.hour {
+    animation: spinHour 1.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+  #clock-face.celebrate .hand.minute {
+    animation: spinMinute 1.6s cubic-bezier(0.25, 0.1, 0.25, 1);
+  }
+  @keyframes spinHour {
+    0%   { transform: translate(-50%, -100%) rotate(0deg); }
+    100% { transform: translate(-50%, -100%) rotate(1440deg); }
+  }
+  @keyframes spinMinute {
+    0%   { transform: translate(-50%, -100%) rotate(0deg); }
+    100% { transform: translate(-50%, -100%) rotate(2520deg); }
+  }
+  #clock-center {
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 20px; height: 20px;
+    background: radial-gradient(circle at 30% 30%, #c9a677, #6b4016);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 2px #3d2508 inset;
+    z-index: 2;
+  }
+
+  .sparkle {
+    position: absolute;
+    font-size: 36px;
+    pointer-events: none;
+    animation: sparkle 1.2s ease-out forwards;
+  }
+  @keyframes sparkle {
+    0%   { opacity: 0; transform: scale(0.3) rotate(0deg); }
+    30%  { opacity: 1; transform: scale(1.3) rotate(90deg); }
+    100% { opacity: 0; transform: scale(0.8) rotate(360deg) translateY(-40px); }
+  }
+
+  #tiles-wrap {
+    flex: 0 0 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 110px;
+    padding: 4px;
+  }
+  #tiles {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 10px;
+    max-width: 92%;
+  }
+  .tile {
+    width: var(--tile-size, 72px);
+    height: var(--tile-size, 72px);
+    background: linear-gradient(180deg, #fff 0%, #f4eecc 100%);
+    color: #222;
+    border: 4px solid rgba(255,255,255,0.7);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: calc(var(--tile-size, 72px) * 0.58);
+    font-weight: 900;
+    font-family: "David", "Tahoma", serif;
+    cursor: grab;
+    box-shadow: 0 6px 14px rgba(0,0,0,0.4);
+    transition: transform 0.1s, box-shadow 0.15s, background 0.15s, border-color 0.15s;
+    touch-action: none;
+    user-select: none;
+  }
+  .tile:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(0,0,0,0.5); }
+  .tile.dragging {
+    cursor: grabbing;
+    transform: scale(1.1);
+    box-shadow: 0 14px 30px rgba(0,0,0,0.6);
+    opacity: 0.92;
+  }
+  .tile.selected {
+    background: linear-gradient(180deg, #ffd86b 0%, #ffae3a 100%);
+    border-color: #c97a00;
+    box-shadow: 0 0 24px rgba(255,216,107,0.9), 0 6px 14px rgba(0,0,0,0.4);
+    transform: scale(1.1);
+  }
+  .tile.wrong-flash {
+    background: #ffb3b3;
+    border-color: #e55b5b;
+    color: #7a1a1a;
+    animation: tileShake 0.45s ease;
+  }
+  .tile.placed {
+    transform: scale(0);
+    opacity: 0;
+    transition: transform 0.35s ease, opacity 0.35s ease;
+  }
+  @keyframes tileShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-7px); }
+    75% { transform: translateX(7px); }
+  }
+
+  /* Overlays / modals — same pattern as other games */
+  #overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  #overlay.show { display: flex; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 30px 44px; border-radius: 22px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+    animation: pop 0.4s ease;
+  }
+  @keyframes pop {
+    0%   { transform: scale(0.5); opacity: 0; }
+    60%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  .modal .emoji { font-size: 64px; margin-bottom: 10px; }
+  .modal h2 { font-size: 30px; margin-bottom: 10px; }
+  .modal p { font-size: 18px; margin-bottom: 20px; opacity: 0.95; }
+  .modal .btn { background: #fff; color: #333; font-size: 18px; padding: 12px 28px; }
+  .modal .btn:hover { background: #ffd86b; }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal p { font-size: 15px; margin-bottom: 14px; opacity: 0.9; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס</button>
+    <div class="info">
+      <span>רמה: <b id="level-num">1</b></span>
+      <span><span id="progress-label">נכונים:</span> <b id="progress-num">0/3</b></span>
+    </div>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="status">גרור או לחץ על המספרים והכנס אותם למקום הנכון</div>
+  <div id="clock-wrap">
+    <div id="clock-face">
+      <div class="hand hour"></div>
+      <div class="hand minute"></div>
+      <div id="clock-center"></div>
+      <!-- slots inserted by JS -->
+    </div>
+  </div>
+  <div id="tiles-wrap">
+    <div id="tiles"></div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="modal">
+    <div class="emoji" id="modal-emoji">🌟</div>
+    <h2 id="modal-title">רמה חדשה!</h2>
+    <p id="modal-text"></p>
+    <button id="modal-btn" class="btn">המשך</button>
+  </div>
+</div>
+
+<script>
+const LEVELS = [
+  { missing: 3,  successesToAdvance: 3 },
+  { missing: 4,  successesToAdvance: 3 },
+  { missing: 5,  successesToAdvance: 3 },
+  { missing: 7,  successesToAdvance: 3 },
+  { missing: 9,  successesToAdvance: 3 },
+  { missing: 12, successesToAdvance: Infinity },
+];
+
+const SUCCESSES_TO_ADVANCE = 3;
+const MISSES_TO_DESCEND = 5;
+const INACTIVITY_MS = 12000;
+const AUTO_END_MS = 10000;
+const CELEBRATE_MS = 1700;
+const DRAG_THRESHOLD = 10;
+
+const clockFaceEl = document.getElementById('clock-face');
+const clockWrapEl = document.getElementById('clock-wrap');
+const tilesEl = document.getElementById('tiles');
+const statusEl = document.getElementById('status');
+const levelNumEl = document.getElementById('level-num');
+const progressLabelEl = document.getElementById('progress-label');
+const progressNumEl = document.getElementById('progress-num');
+const btnReset = document.getElementById('btn-reset');
+const btnEnd = document.getElementById('btn-end');
+const overlay = document.getElementById('overlay');
+const modalEmoji = document.getElementById('modal-emoji');
+const modalTitle = document.getElementById('modal-title');
+const modalText = document.getElementById('modal-text');
+const modalBtn = document.getElementById('modal-btn');
+
+let levelIdx = 0;
+let successCount = 0;
+let missStreak = 0;
+let lastLevelScore = 0;
+let state = 'playing';
+let wrongAttempts = 0;
+let descendQueued = false;
+let selectedTile = null;
+let dragging = null;
+let inactivityTimer = null;
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// --- Audio ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.15, startOffset = 0, freqEnd = null }) {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  const t0 = ac.currentTime + startOffset;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function playSuccess() {
+  tone({ freq: 523.25, type: 'sine', duration: 0.12, volume: 0.16 });
+  tone({ freq: 659.25, type: 'sine', duration: 0.13, volume: 0.16, startOffset: 0.08 });
+}
+function playComplete() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.2, volume: 0.2, startOffset: i * 0.11 });
+  });
+}
+function playError() { tone({ freq: 260, freqEnd: 150, type: 'sawtooth', duration: 0.3, volume: 0.13 }); }
+function playLevelUp() {
+  [523.25, 659.25, 783.99, 1046.5, 1318.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.18, volume: 0.18, startOffset: i * 0.09 });
+  });
+}
+
+// --- Layout ---
+function layoutClock() {
+  const w = clockWrapEl.clientWidth;
+  const h = clockWrapEl.clientHeight;
+  const size = Math.max(260, Math.min(520, Math.floor(Math.min(w * 0.88, h * 0.98))));
+  clockFaceEl.style.setProperty('--clock-size', size + 'px');
+  const slotSize = Math.max(44, Math.floor(size * 0.135));
+  document.querySelectorAll('.slot').forEach(el => {
+    el.style.setProperty('--slot-size', slotSize + 'px');
+  });
+  const radius = (size / 2) - slotSize / 2 - 18;
+  document.querySelectorAll('.slot').forEach(el => {
+    const num = parseInt(el.dataset.num);
+    const angle = (num * 30 - 90) * Math.PI / 180;
+    const tx = Math.cos(angle) * radius;
+    const ty = Math.sin(angle) * radius;
+    el.style.setProperty('--tx', tx + 'px');
+    el.style.setProperty('--ty', ty + 'px');
+  });
+
+  // Tile size
+  const tileSize = Math.max(60, Math.min(84, Math.floor(size * 0.16)));
+  document.querySelectorAll('.tile').forEach(el => {
+    el.style.setProperty('--tile-size', tileSize + 'px');
+  });
+}
+
+// --- Round setup ---
+function startRound() {
+  const lvl = LEVELS[levelIdx];
+  // Pick which numbers are missing
+  const allNums = [1,2,3,4,5,6,7,8,9,10,11,12];
+  shuffle(allNums);
+  const missingNums = allNums.slice(0, lvl.missing).sort((a,b)=>a-b);
+  const missingSet = new Set(missingNums);
+
+  // Clear and render slots
+  // Remove old slots and tiles, keep the hands + center
+  clockFaceEl.querySelectorAll('.slot').forEach(el => el.remove());
+  clockFaceEl.querySelectorAll('.sparkle').forEach(el => el.remove());
+  clockFaceEl.classList.remove('celebrate');
+
+  for (let n = 1; n <= 12; n++) {
+    const slot = document.createElement('div');
+    slot.className = 'slot';
+    slot.dataset.num = n;
+    if (missingSet.has(n)) {
+      slot.classList.add('empty');
+    } else {
+      slot.classList.add('anchor');
+      slot.textContent = n;
+    }
+    slot.addEventListener('click', () => onSlotClick(slot));
+    clockFaceEl.appendChild(slot);
+  }
+
+  // Render tiles (shuffled)
+  tilesEl.innerHTML = '';
+  const tileOrder = shuffle([...missingNums]);
+  tileOrder.forEach(n => {
+    const tile = document.createElement('div');
+    tile.className = 'tile';
+    tile.dataset.num = n;
+    tile.textContent = n;
+    attachTileHandlers(tile);
+    tilesEl.appendChild(tile);
+  });
+
+  wrongAttempts = 0;
+  state = 'playing';
+  selectedTile = null;
+  statusEl.textContent = 'גרור או לחץ על המספרים והכנס אותם למקום הנכון';
+  updateInfo();
+  resetInactivity();
+  requestAnimationFrame(layoutClock);
+}
+
+function attachTileHandlers(tileEl) {
+  tileEl.addEventListener('pointerdown', e => {
+    if (state !== 'playing') return;
+    e.preventDefault();
+    getAudio();
+    resetInactivity();
+    try { tileEl.setPointerCapture(e.pointerId); } catch(_){}
+    dragging = {
+      el: tileEl,
+      pointerId: e.pointerId,
+      startX: e.clientX, startY: e.clientY,
+      active: false,
+      offX: 0, offY: 0,
+    };
+  });
+  tileEl.addEventListener('pointermove', e => {
+    if (!dragging || dragging.el !== tileEl) return;
+    const dx = e.clientX - dragging.startX;
+    const dy = e.clientY - dragging.startY;
+    if (!dragging.active && Math.hypot(dx, dy) > DRAG_THRESHOLD) {
+      // Promote to active drag
+      dragging.active = true;
+      const rect = tileEl.getBoundingClientRect();
+      dragging.offX = dragging.startX - rect.left;
+      dragging.offY = dragging.startY - rect.top;
+      // Fix size before switching to fixed positioning
+      const cs = getComputedStyle(tileEl);
+      tileEl.style.width = cs.width;
+      tileEl.style.height = cs.height;
+      tileEl.style.position = 'fixed';
+      tileEl.style.zIndex = 2000;
+      tileEl.classList.add('dragging');
+    }
+    if (dragging.active) {
+      tileEl.style.left = (e.clientX - dragging.offX) + 'px';
+      tileEl.style.top = (e.clientY - dragging.offY) + 'px';
+      // Show hover highlight on slot under pointer
+      document.querySelectorAll('.slot.drop-hover').forEach(el => el.classList.remove('drop-hover'));
+      const target = document.elementFromPoint(e.clientX, e.clientY);
+      if (target) {
+        const slot = target.closest('.slot');
+        if (slot && slot.classList.contains('empty')) slot.classList.add('drop-hover');
+      }
+    }
+  });
+  const end = e => {
+    if (!dragging || dragging.el !== tileEl) return;
+    const wasActive = dragging.active;
+    const endX = e.clientX, endY = e.clientY;
+    // Reset tile visual
+    tileEl.style.position = '';
+    tileEl.style.left = '';
+    tileEl.style.top = '';
+    tileEl.style.zIndex = '';
+    tileEl.style.width = '';
+    tileEl.style.height = '';
+    tileEl.classList.remove('dragging');
+    document.querySelectorAll('.slot.drop-hover').forEach(el => el.classList.remove('drop-hover'));
+    try { tileEl.releasePointerCapture(e.pointerId); } catch(_){}
+    const wasDragging = dragging;
+    dragging = null;
+
+    if (wasActive) {
+      // Drop mode
+      const target = document.elementFromPoint(endX, endY);
+      if (target) {
+        const slot = target.closest('.slot');
+        if (slot) tryPlace(tileEl, slot);
+      }
+    } else {
+      // Click mode — select/deselect
+      if (selectedTile === tileEl) {
+        deselectTile();
+      } else {
+        selectTile(tileEl);
+      }
+    }
+  };
+  tileEl.addEventListener('pointerup', end);
+  tileEl.addEventListener('pointercancel', end);
+}
+
+function selectTile(tileEl) {
+  if (selectedTile) selectedTile.classList.remove('selected');
+  selectedTile = tileEl;
+  tileEl.classList.add('selected');
+}
+function deselectTile() {
+  if (selectedTile) selectedTile.classList.remove('selected');
+  selectedTile = null;
+}
+
+function onSlotClick(slotEl) {
+  if (state !== 'playing') return;
+  if (!selectedTile) return;
+  if (dragging && dragging.active) return;  // ignore if currently dragging
+  getAudio();
+  resetInactivity();
+  tryPlace(selectedTile, slotEl);
+}
+
+function tryPlace(tileEl, slotEl) {
+  if (state !== 'playing') return;
+  resetInactivity();
+  if (!slotEl.classList.contains('empty')) {
+    // Slot already filled or anchor — silent rejection with slight shake
+    slotEl.classList.add('slot-wrong');
+    tileEl.classList.add('wrong-flash');
+    playError();
+    if (wrongAttempts === 0) recordMissStreak();
+    wrongAttempts++;
+    setTimeout(() => {
+      slotEl.classList.remove('slot-wrong');
+      tileEl.classList.remove('wrong-flash');
+    }, 500);
+    return;
+  }
+  const tileNum = parseInt(tileEl.dataset.num);
+  const slotNum = parseInt(slotEl.dataset.num);
+  if (tileNum === slotNum) {
+    // Correct placement
+    slotEl.textContent = slotNum;
+    slotEl.classList.remove('empty');
+    slotEl.classList.add('filled');
+    tileEl.classList.add('placed');
+    playSuccess();
+    deselectTile();
+    setTimeout(() => tileEl.remove(), 350);
+
+    // Check for round completion
+    const remaining = clockFaceEl.querySelectorAll('.slot.empty').length;
+    if (remaining === 0) {
+      onRoundComplete();
+    }
+  } else {
+    // Wrong slot
+    slotEl.classList.add('slot-wrong');
+    tileEl.classList.add('wrong-flash');
+    playError();
+    if (wrongAttempts === 0) recordMissStreak();
+    wrongAttempts++;
+    setTimeout(() => {
+      slotEl.classList.remove('slot-wrong');
+      tileEl.classList.remove('wrong-flash');
+    }, 500);
+  }
+}
+
+function recordMissStreak() {
+  missStreak++;
+  successCount = 0;
+  if (missStreak >= MISSES_TO_DESCEND && levelIdx > 0) {
+    descendQueued = true;
+    missStreak = 0;
+  }
+}
+
+// --- Celebration ---
+function onRoundComplete() {
+  state = 'result';
+  clockFaceEl.classList.add('celebrate');
+  playComplete();
+  statusEl.textContent = 'מצוין!';
+  spawnSparkles();
+
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (wrongAttempts === 0) {
+    successCount++;
+    missStreak = 0;
+  }
+  if (isLast) lastLevelScore++;
+  updateInfo();
+
+  setTimeout(() => {
+    if (!isLast && successCount >= SUCCESSES_TO_ADVANCE) {
+      showLevelUp();
+    } else if (descendQueued && levelIdx > 0) {
+      levelIdx--;
+      successCount = 0;
+      missStreak = 0;
+      descendQueued = false;
+      startRound();
+    } else {
+      startRound();
+    }
+  }, CELEBRATE_MS);
+}
+
+function spawnSparkles() {
+  const size = clockFaceEl.clientWidth;
+  const emojis = ['✨','🌟','⭐','🎉'];
+  for (let i = 0; i < 6; i++) {
+    const s = document.createElement('div');
+    s.className = 'sparkle';
+    s.textContent = emojis[i % emojis.length];
+    const angle = Math.random() * Math.PI * 2;
+    const r = size * 0.35 + Math.random() * size * 0.1;
+    s.style.left = `calc(50% + ${Math.cos(angle) * r}px - 18px)`;
+    s.style.top = `calc(50% + ${Math.sin(angle) * r}px - 18px)`;
+    s.style.animationDelay = (i * 0.08) + 's';
+    clockFaceEl.appendChild(s);
+    setTimeout(() => s.remove(), 1500);
+  }
+}
+
+function showLevelUp() {
+  modalEmoji.textContent = '🌟';
+  modalTitle.textContent = 'רמה חדשה!';
+  const nextMissing = LEVELS[levelIdx + 1].missing;
+  modalText.textContent = `עולים ל-${nextMissing} מספרים חסרים`;
+  modalBtn.textContent = 'המשך';
+  modalBtn.onclick = () => {
+    overlay.classList.remove('show');
+    levelIdx++;
+    successCount = 0;
+    missStreak = 0;
+    startRound();
+  };
+  overlay.classList.add('show');
+  playLevelUp();
+}
+
+function updateInfo() {
+  levelNumEl.textContent = levelIdx + 1;
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (isLast) {
+    progressLabelEl.textContent = 'ניקוד:';
+    progressNumEl.textContent = lastLevelScore;
+  } else {
+    progressLabelEl.textContent = 'נכונים:';
+    progressNumEl.textContent = `${successCount}/${SUCCESSES_TO_ADVANCE}`;
+  }
+}
+
+// --- Inactivity ---
+function resetInactivity() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(showInactivityDialog, INACTIVITY_MS);
+}
+function showInactivityDialog() {
+  if (state !== 'playing') return;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>12 שניות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  let to;
+  const cleanup = (choice) => {
+    if (to) { clearTimeout(to); to = null; }
+    if (o.parentNode) o.remove();
+    if (choice === 'yes') { state = 'playing'; resetInactivity(); }
+    else endGame();
+  };
+  o.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  o.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+  document.body.appendChild(o);
+}
+
+// --- Reset / End ---
+btnReset.addEventListener('click', () => {
+  getAudio();
+  overlay.classList.remove('show');
+  levelIdx = 0;
+  successCount = 0;
+  missStreak = 0;
+  lastLevelScore = 0;
+  descendQueued = false;
+  startRound();
+});
+
+function confirmEndGame() {
+  clearTimeout(inactivityTimer);
+  const prev = state;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  o.querySelector('.yes').addEventListener('click', () => { o.remove(); endGame(); });
+  o.querySelector('.no').addEventListener('click', () => {
+    o.remove();
+    state = prev;
+    resetInactivity();
+  });
+  document.body.appendChild(o);
+}
+function endGame() {
+  clearTimeout(inactivityTimer);
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+btnEnd.addEventListener('click', confirmEndGame);
+
+window.addEventListener('resize', layoutClock);
+
+startRound();
+</script>
+</body>
+</html>

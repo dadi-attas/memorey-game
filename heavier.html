@@ -1,0 +1,639 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>מה יותר כבד?</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚖️</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(180deg, #6cc4f0 0%, #a8d8f5 40%, #d9e8f2 100%);
+    color: #fff; user-select: none; touch-action: manipulation;
+  }
+  #app { height: 100vh; width: 100vw; display: flex; flex-direction: column; padding: 12px; gap: 8px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 0 0 auto; height: 56px; }
+  .btn {
+    background: rgba(255, 255, 255, 0.7);
+    border: 2px solid rgba(255, 255, 255, 0.95);
+    color: #1e3c72; padding: 11px 20px;
+    font-size: 17px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+    box-shadow: 0 3px 8px rgba(0,0,0,0.15);
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.9); }
+  .btn:active { transform: scale(0.94); }
+  .info {
+    flex: 1 1 auto; display: flex; justify-content: center; align-items: center;
+    gap: 22px; font-size: 20px; font-weight: 700;
+    color: #1e3c72;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.6);
+  }
+  .info span b { color: #c97a00; font-size: 26px; margin-inline-start: 6px; }
+
+  #status {
+    text-align: center;
+    font-size: 24px; font-weight: 800;
+    flex: 0 0 auto;
+    min-height: 30px;
+    color: #1e3c72;
+    text-shadow: 0 1px 2px rgba(255,255,255,0.6);
+    letter-spacing: 1px;
+  }
+
+  #stage {
+    flex: 1 1 auto;
+    position: relative;
+    min-height: 0; min-width: 0;
+    overflow: hidden;
+  }
+
+  .pillar {
+    position: absolute;
+    bottom: 6%;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 24px;
+    height: 55%;
+    background: linear-gradient(90deg, #8b5a2b 0%, #c9a677 50%, #8b5a2b 100%);
+    border-radius: 8px;
+    box-shadow: 0 0 0 2px #6b4016 inset, 2px 0 6px rgba(0,0,0,0.25);
+  }
+  .pillar::after {
+    content: '';
+    position: absolute;
+    bottom: -22px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 140px;
+    height: 22px;
+    background: linear-gradient(180deg, #c9a677 0%, #8b5a2b 100%);
+    border-radius: 8px;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.25);
+  }
+
+  .beam {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 72%;
+    height: 18px;
+    background: linear-gradient(180deg, #c9a677 0%, #8b5a2b 100%);
+    border-radius: 9px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.3);
+    transform: translate(-50%, -50%) rotate(var(--tilt, 0deg));
+    transform-origin: center;
+    transition: transform 1s cubic-bezier(0.4, 0.12, 0.25, 1);
+  }
+  .beam.snap { transition: none; }
+  .beam::before {
+    content: '';
+    position: absolute;
+    left: 50%; top: 50%;
+    width: 26px; height: 26px;
+    background: radial-gradient(circle at 30% 30%, #d4a574, #6b4016);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 0 0 0 2px #6b4016 inset;
+  }
+
+  .arm {
+    position: absolute;
+    top: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+  .arm.left {
+    left: 0;
+    transform: translateX(-50%);
+  }
+  .arm.right {
+    right: 0;
+    transform: translateX(50%);
+  }
+  .rope {
+    width: 4px;
+    height: 80px;
+    background: linear-gradient(180deg, #6b4016, #3d2508);
+  }
+  .tray {
+    width: 200px;
+    height: 14px;
+    background: linear-gradient(180deg, #c9a677 0%, #8b5a2b 100%);
+    border-radius: 4px;
+    margin-top: -1px;
+    box-shadow: 0 3px 6px rgba(0,0,0,0.25);
+  }
+  .item {
+    position: absolute;
+    bottom: 13px;
+    width: var(--item-size, 170px);
+    height: var(--item-size, 170px);
+    background: linear-gradient(180deg, #fff 0%, #fff8e7 100%);
+    border: 5px solid #c9a677;
+    border-radius: 22px;
+    font-size: calc(var(--item-size, 170px) * 0.62);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 8px 22px rgba(0,0,0,0.4);
+    transition: transform 0.15s, background 0.3s, border-color 0.3s;
+    line-height: 1;
+  }
+  .item:hover:not(:disabled) {
+    transform: translateY(-3px);
+    box-shadow: 0 12px 28px rgba(0,0,0,0.5);
+  }
+  .item:active:not(:disabled) { transform: translateY(0) scale(0.96); }
+  .item.correct {
+    background: #a8e6a1;
+    border-color: #3fa83f;
+    animation: pulseGreen 0.7s ease;
+  }
+  .item.wrong {
+    background: #ffb3b3;
+    border-color: #e55b5b;
+    animation: shake 0.5s ease;
+  }
+  @keyframes pulseGreen {
+    0%, 100% { box-shadow: 0 8px 22px rgba(0,0,0,0.4); }
+    50%      { box-shadow: 0 0 35px rgba(86,195,77,0.95); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-10px); }
+    40% { transform: translateX(10px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+
+  /* Modals, end-game, goodbye — same pattern as other games */
+  #overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  #overlay.show { display: flex; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 30px 44px; border-radius: 22px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+    animation: pop 0.4s ease;
+  }
+  @keyframes pop {
+    0%   { transform: scale(0.5); opacity: 0; }
+    60%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  .modal .emoji { font-size: 64px; margin-bottom: 10px; }
+  .modal h2 { font-size: 30px; margin-bottom: 10px; }
+  .modal p { font-size: 18px; margin-bottom: 20px; opacity: 0.95; }
+  .modal .btn { background: #fff; color: #333; font-size: 18px; padding: 12px 28px; }
+  .modal .btn:hover { background: #ffd86b; }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.6) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal p { font-size: 15px; margin-bottom: 14px; opacity: 0.9; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס</button>
+    <div class="info">
+      <span>רמה: <b id="level-num">1</b></span>
+      <span><span id="progress-label">נכונים:</span> <b id="progress-num">0/3</b></span>
+    </div>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="status">מה יותר כבד?</div>
+  <div id="stage">
+    <div class="pillar"></div>
+    <div class="beam" id="beam">
+      <div class="arm left">
+        <div class="rope"></div>
+        <div class="tray"></div>
+        <button class="item" id="item-left" data-side="left"></button>
+      </div>
+      <div class="arm right">
+        <div class="rope"></div>
+        <div class="tray"></div>
+        <button class="item" id="item-right" data-side="right"></button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="modal">
+    <div class="emoji" id="modal-emoji">🌟</div>
+    <h2 id="modal-title">רמה חדשה!</h2>
+    <p id="modal-text"></p>
+    <button id="modal-btn" class="btn">המשך</button>
+  </div>
+</div>
+
+<script>
+// Levels: up to which tier of pairs is allowed.
+// Tier 1 = most extreme difference, Tier 4 = still clear but needs knowledge.
+const LEVELS = [
+  { tierMax: 1, successesToAdvance: 3 },
+  { tierMax: 2, successesToAdvance: 3 },
+  { tierMax: 3, successesToAdvance: 3 },
+  { tierMax: 4, successesToAdvance: 3 },
+  { tierMax: 4, successesToAdvance: Infinity },
+];
+
+// Pairs — `h` is heavier, `l` is lighter. Only UNAMBIGUOUS pairs included
+// (the user was clear: no "apple vs pear" type edge cases).
+const PAIRS = [
+  // Tier 1: extreme (huge vs tiny)
+  { h: '🐘', l: '🐜', tier: 1 },   // elephant > ant
+  { h: '🐘', l: '🐝', tier: 1 },   // elephant > bee
+  { h: '🐘', l: '🐭', tier: 1 },   // elephant > mouse
+  { h: '🐋', l: '🐟', tier: 1 },   // whale > fish
+  { h: '🦏', l: '🐁', tier: 1 },   // rhino > mouse
+  { h: '🦒', l: '🐝', tier: 1 },   // giraffe > bee
+  { h: '🚂', l: '🚲', tier: 1 },   // train > bicycle
+  { h: '🚚', l: '🛴', tier: 1 },   // truck > scooter
+  { h: '🏠', l: '📦', tier: 1 },   // house > box
+  { h: '🍉', l: '🍒', tier: 1 },   // watermelon > cherry
+  { h: '🎃', l: '🍒', tier: 1 },   // pumpkin > cherry
+  { h: '🐊', l: '🦎', tier: 1 },   // crocodile > lizard
+
+  // Tier 2: very clear
+  { h: '🐘', l: '🐶', tier: 2 },   // elephant > dog
+  { h: '🦁', l: '🐱', tier: 2 },   // lion > cat
+  { h: '🐻', l: '🐰', tier: 2 },   // bear > rabbit
+  { h: '🐴', l: '🐶', tier: 2 },   // horse > dog
+  { h: '🐄', l: '🐔', tier: 2 },   // cow > chicken
+  { h: '🚗', l: '🚲', tier: 2 },   // car > bicycle
+  { h: '🚌', l: '🚗', tier: 2 },   // bus > car
+  { h: '🍉', l: '🍎', tier: 2 },   // watermelon > apple
+  { h: '🐋', l: '🐬', tier: 2 },   // whale > dolphin
+  { h: '🚢', l: '⛵', tier: 2 },   // ship > sailboat
+  { h: '🦏', l: '🐐', tier: 2 },   // rhino > goat
+
+  // Tier 3: clear, requires thinking
+  { h: '🦁', l: '🐰', tier: 3 },   // lion > rabbit
+  { h: '🐴', l: '🐱', tier: 3 },   // horse > cat
+  { h: '🐻', l: '🐕', tier: 3 },   // bear > dog
+  { h: '🐘', l: '🐔', tier: 3 },   // elephant > chicken
+  { h: '🍍', l: '🍋', tier: 3 },   // pineapple > lemon
+  { h: '🎃', l: '🍎', tier: 3 },   // pumpkin > apple
+  { h: '🚗', l: '🛴', tier: 3 },   // car > scooter
+  { h: '🦒', l: '🐕', tier: 3 },   // giraffe > dog
+  { h: '🐋', l: '🦈', tier: 3 },   // whale > shark
+  { h: '🍉', l: '🍊', tier: 3 },   // watermelon > orange
+
+  // Tier 4: still clear
+  { h: '🦁', l: '🐕', tier: 4 },   // lion > dog
+  { h: '🐴', l: '🐰', tier: 4 },   // horse > rabbit
+  { h: '🍉', l: '🍓', tier: 4 },   // watermelon > strawberry
+  { h: '🏍️', l: '🚲', tier: 4 },  // motorcycle > bicycle
+  { h: '🦏', l: '🐶', tier: 4 },   // rhino > dog
+  { h: '🐪', l: '🐑', tier: 4 },   // camel > sheep
+  { h: '🚚', l: '🏍️', tier: 4 },  // truck > motorcycle
+  { h: '✈️', l: '🚗', tier: 4 },   // airplane > car
+];
+
+const SUCCESSES_TO_ADVANCE = 3;
+const MISSES_TO_DESCEND = 5;
+const INACTIVITY_MS = 12000;
+const AUTO_END_MS = 10000;
+const TILT_DURATION_MS = 1100;
+const TILT_ANGLE = 16;
+
+const beamEl = document.getElementById('beam');
+const itemLeftEl = document.getElementById('item-left');
+const itemRightEl = document.getElementById('item-right');
+const stageEl = document.getElementById('stage');
+const statusEl = document.getElementById('status');
+const levelNumEl = document.getElementById('level-num');
+const progressLabelEl = document.getElementById('progress-label');
+const progressNumEl = document.getElementById('progress-num');
+const btnReset = document.getElementById('btn-reset');
+const btnEnd = document.getElementById('btn-end');
+const overlay = document.getElementById('overlay');
+const modalEmoji = document.getElementById('modal-emoji');
+const modalTitle = document.getElementById('modal-title');
+const modalText = document.getElementById('modal-text');
+const modalBtn = document.getElementById('modal-btn');
+
+let levelIdx = 0;
+let successCount = 0;
+let missStreak = 0;
+let lastLevelScore = 0;
+let state = 'playing';
+let currentPair = null;
+let heavierSide = 'left';
+let wrongAttempts = 0;
+let descendQueued = false;
+let recentPairs = [];
+let inactivityTimer = null;
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// --- Audio ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.15, startOffset = 0, freqEnd = null }) {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  const t0 = ac.currentTime + startOffset;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function playSuccess() {
+  tone({ freq: 523.25, type: 'sine', duration: 0.13, volume: 0.16 });
+  tone({ freq: 659.25, type: 'sine', duration: 0.14, volume: 0.16, startOffset: 0.1 });
+}
+function playError() { tone({ freq: 260, freqEnd: 150, type: 'sawtooth', duration: 0.3, volume: 0.13 }); }
+function playLevelUp() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.18, volume: 0.18, startOffset: i * 0.1 });
+  });
+}
+function playThud() {
+  // deep thud when heavy side lands
+  tone({ freq: 180, freqEnd: 80, type: 'sine', duration: 0.25, volume: 0.18, startOffset: 0.3 });
+}
+
+// --- Layout ---
+function layoutStage() {
+  const h = stageEl.clientHeight;
+  const itemSize = Math.max(120, Math.min(200, Math.floor(h * 0.32)));
+  itemLeftEl.style.setProperty('--item-size', itemSize + 'px');
+  itemRightEl.style.setProperty('--item-size', itemSize + 'px');
+}
+
+// --- Round ---
+function pickPair() {
+  const tierMax = LEVELS[levelIdx].tierMax;
+  const available = PAIRS.filter(p => p.tier <= tierMax);
+  let pool = available.filter(p => !recentPairs.includes(p.h + p.l));
+  if (pool.length === 0) {
+    recentPairs = [];
+    pool = available;
+  }
+  const chosen = pick(pool);
+  recentPairs.push(chosen.h + chosen.l);
+  if (recentPairs.length > 10) recentPairs.shift();
+  return chosen;
+}
+
+function startRound() {
+  currentPair = pickPair();
+  // Random assignment of heavier to left or right
+  heavierSide = Math.random() < 0.5 ? 'left' : 'right';
+  if (heavierSide === 'left') {
+    itemLeftEl.textContent = currentPair.h;
+    itemRightEl.textContent = currentPair.l;
+  } else {
+    itemLeftEl.textContent = currentPair.l;
+    itemRightEl.textContent = currentPair.h;
+  }
+
+  // Reset visual state: snap back to level (no animation while snapping)
+  beamEl.classList.add('snap');
+  beamEl.style.setProperty('--tilt', '0deg');
+  void beamEl.offsetWidth;
+  beamEl.classList.remove('snap');
+
+  itemLeftEl.classList.remove('correct', 'wrong');
+  itemRightEl.classList.remove('correct', 'wrong');
+  itemLeftEl.disabled = false;
+  itemRightEl.disabled = false;
+
+  wrongAttempts = 0;
+  state = 'playing';
+  statusEl.textContent = 'מה יותר כבד?';
+  updateInfo();
+  resetInactivity();
+  requestAnimationFrame(layoutStage);
+}
+
+function onClick(side, btnEl) {
+  if (state !== 'playing') return;
+  getAudio();
+  resetInactivity();
+
+  if (side === heavierSide) {
+    onCorrect(btnEl);
+  } else {
+    onWrong(btnEl);
+  }
+}
+
+function onCorrect(btnEl) {
+  state = 'result';
+  itemLeftEl.disabled = true;
+  itemRightEl.disabled = true;
+  btnEl.classList.add('correct');
+  playSuccess();
+  statusEl.textContent = 'נכון!';
+
+  // Tilt the beam — heavier side goes DOWN.
+  // Positive rotation = clockwise = right end down.
+  const tilt = heavierSide === 'right' ? TILT_ANGLE : -TILT_ANGLE;
+  beamEl.style.setProperty('--tilt', tilt + 'deg');
+  playThud();
+
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (wrongAttempts === 0) {
+    successCount++;
+    missStreak = 0;
+  }
+  if (isLast) lastLevelScore++;
+  updateInfo();
+
+  setTimeout(() => {
+    if (!isLast && successCount >= SUCCESSES_TO_ADVANCE) {
+      showLevelUp();
+    } else if (descendQueued && levelIdx > 0) {
+      levelIdx--;
+      successCount = 0;
+      missStreak = 0;
+      descendQueued = false;
+      startRound();
+    } else {
+      startRound();
+    }
+  }, TILT_DURATION_MS + 600);
+}
+
+function onWrong(btnEl) {
+  btnEl.classList.add('wrong');
+  playError();
+  if (wrongAttempts === 0) {
+    missStreak++;
+    successCount = 0;
+    if (missStreak >= MISSES_TO_DESCEND && levelIdx > 0) {
+      descendQueued = true;
+      missStreak = 0;
+    }
+  }
+  wrongAttempts++;
+  setTimeout(() => btnEl.classList.remove('wrong'), 550);
+}
+
+itemLeftEl.addEventListener('click', () => onClick('left', itemLeftEl));
+itemRightEl.addEventListener('click', () => onClick('right', itemRightEl));
+
+function showLevelUp() {
+  modalEmoji.textContent = '🌟';
+  modalTitle.textContent = 'רמה חדשה!';
+  modalText.textContent = 'עולים לרמה ' + (levelIdx + 2);
+  modalBtn.textContent = 'המשך';
+  modalBtn.onclick = () => {
+    overlay.classList.remove('show');
+    levelIdx++;
+    successCount = 0;
+    missStreak = 0;
+    startRound();
+  };
+  overlay.classList.add('show');
+  playLevelUp();
+}
+
+function updateInfo() {
+  levelNumEl.textContent = levelIdx + 1;
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (isLast) {
+    progressLabelEl.textContent = 'ניקוד:';
+    progressNumEl.textContent = lastLevelScore;
+  } else {
+    progressLabelEl.textContent = 'נכונים:';
+    progressNumEl.textContent = `${successCount}/${SUCCESSES_TO_ADVANCE}`;
+  }
+}
+
+// --- Inactivity ---
+function resetInactivity() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(showInactivityDialog, INACTIVITY_MS);
+}
+function showInactivityDialog() {
+  if (state !== 'playing') return;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>12 שניות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  let to;
+  const cleanup = (choice) => {
+    if (to) { clearTimeout(to); to = null; }
+    if (o.parentNode) o.remove();
+    if (choice === 'yes') { state = 'playing'; resetInactivity(); }
+    else endGame();
+  };
+  o.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  o.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+  document.body.appendChild(o);
+}
+
+// --- Reset / End ---
+btnReset.addEventListener('click', () => {
+  getAudio();
+  overlay.classList.remove('show');
+  levelIdx = 0;
+  successCount = 0;
+  missStreak = 0;
+  lastLevelScore = 0;
+  recentPairs = [];
+  descendQueued = false;
+  startRound();
+});
+
+function confirmEndGame() {
+  clearTimeout(inactivityTimer);
+  const prev = state;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  o.querySelector('.yes').addEventListener('click', () => { o.remove(); endGame(); });
+  o.querySelector('.no').addEventListener('click', () => {
+    o.remove();
+    state = prev;
+    resetInactivity();
+  });
+  document.body.appendChild(o);
+}
+function endGame() {
+  clearTimeout(inactivityTimer);
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+btnEnd.addEventListener('click', confirmEndGame);
+
+window.addEventListener('resize', layoutStage);
+
+startRound();
+</script>
+</body>
+</html>

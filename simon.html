@@ -1,0 +1,445 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>סיימון</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎹</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    height: 100%;
+    width: 100%;
+    overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: radial-gradient(ellipse at center, #2c3e50 0%, #1a1a2e 100%);
+    color: #fff;
+    user-select: none;
+  }
+
+  #app {
+    height: 100vh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    gap: 10px;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    flex: 0 0 auto;
+    height: 56px;
+  }
+
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff;
+    padding: 10px 18px;
+    font-size: 16px;
+    font-weight: 600;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.15s, background 0.2s;
+    white-space: nowrap;
+    backdrop-filter: blur(6px);
+  }
+
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.96); }
+
+  .info {
+    flex: 1 1 auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 28px;
+    font-size: 18px;
+    font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  }
+
+  .info span b {
+    color: #ffd86b;
+    font-size: 24px;
+    margin-inline-start: 6px;
+  }
+
+  #status {
+    text-align: center;
+    font-size: 20px;
+    font-weight: 700;
+    min-height: 28px;
+    flex: 0 0 auto;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    color: #ffd86b;
+  }
+
+  #board-wrap {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 0;
+    min-width: 0;
+  }
+
+  #board {
+    position: relative;
+    direction: ltr;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: 1fr 1fr;
+    gap: 14px;
+    background: #111;
+    border-radius: 50%;
+    padding: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.6), inset 0 0 30px rgba(0, 0, 0, 0.5);
+  }
+
+  .pad {
+    cursor: pointer;
+    border: 4px solid rgba(0, 0, 0, 0.4);
+    transition: filter 0.1s, transform 0.1s;
+    position: relative;
+    overflow: hidden;
+  }
+
+  .pad[data-color="green"]  { background: #0a7a2a; border-top-left-radius: 100%; }
+  .pad[data-color="red"]    { background: #b81d1d; border-top-right-radius: 100%; }
+  .pad[data-color="yellow"] { background: #b8a01d; border-bottom-left-radius: 100%; }
+  .pad[data-color="blue"]   { background: #1d4fb8; border-bottom-right-radius: 100%; }
+
+  .pad.active[data-color="green"]  { background: #3df06a; box-shadow: 0 0 40px #3df06a; }
+  .pad.active[data-color="red"]    { background: #ff5252; box-shadow: 0 0 40px #ff5252; }
+  .pad.active[data-color="yellow"] { background: #ffe94f; box-shadow: 0 0 40px #ffe94f; }
+  .pad.active[data-color="blue"]   { background: #4f8bff; box-shadow: 0 0 40px #4f8bff; }
+
+  .pad.disabled { cursor: not-allowed; filter: brightness(0.75); }
+
+  #center {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 28%;
+    height: 28%;
+    border-radius: 50%;
+    background: radial-gradient(circle, #2c2c2c 0%, #111 100%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.8), 0 4px 14px rgba(0, 0, 0, 0.6);
+    border: 3px solid rgba(255, 255, 255, 0.1);
+    pointer-events: none;
+  }
+
+  #center .label { font-size: 14px; opacity: 0.7; }
+  #center .round-num {
+    font-size: 42px;
+    font-weight: 900;
+    color: #ffd86b;
+    text-shadow: 0 0 12px rgba(255, 216, 107, 0.6);
+  }
+
+  #overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 20;
+    backdrop-filter: blur(4px);
+  }
+
+  #overlay.show { display: flex; animation: fadeIn 0.3s ease; }
+
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+
+  .modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 30px 40px;
+    border-radius: 20px;
+    text-align: center;
+    max-width: 90%;
+    box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  }
+
+  .modal h2 { font-size: 32px; margin-bottom: 10px; }
+  .modal p { font-size: 18px; margin-bottom: 20px; opacity: 0.95; }
+  .modal .btn { background: #fff; color: #333; font-size: 18px; padding: 12px 28px; }
+  .modal .btn:hover { background: #ffd86b; }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס משחק</button>
+    <div class="info">
+      <span>סבב: <b id="round-info">0</b></span>
+      <span>שיא: <b id="best-info">0</b></span>
+    </div>
+    <button id="btn-start" class="btn">התחל</button>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="status">לחץ "התחל" כדי להתחיל</div>
+  <div id="board-wrap">
+    <div id="board">
+      <div class="pad" data-color="green"  data-freq="329.63"></div>
+      <div class="pad" data-color="red"    data-freq="440.00"></div>
+      <div class="pad" data-color="yellow" data-freq="277.18"></div>
+      <div class="pad" data-color="blue"   data-freq="164.81"></div>
+      <div id="center">
+        <div class="label">סבב</div>
+        <div class="round-num" id="center-round">0</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="modal">
+    <h2 id="modal-title">טעית!</h2>
+    <p id="modal-text"></p>
+    <button id="modal-btn" class="btn">שחק שוב</button>
+  </div>
+</div>
+
+<script>
+  const pads = Array.from(document.querySelectorAll('.pad'));
+  const board = document.getElementById('board');
+  const boardWrap = document.getElementById('board-wrap');
+  const statusEl = document.getElementById('status');
+  const roundInfo = document.getElementById('round-info');
+  const bestInfo = document.getElementById('best-info');
+  const centerRound = document.getElementById('center-round');
+  const btnReset = document.getElementById('btn-reset');
+  const btnStart = document.getElementById('btn-start');
+  const overlay = document.getElementById('overlay');
+  const modalTitle = document.getElementById('modal-title');
+  const modalText = document.getElementById('modal-text');
+  const modalBtn = document.getElementById('modal-btn');
+
+  let sequence = [];
+  let userPos = 0;
+  let playing = false;
+  let acceptingInput = false;
+  let best = Number(localStorage.getItem('simon-best') || 0);
+  bestInfo.textContent = best;
+
+  // Web Audio
+  let audioCtx = null;
+  function ensureAudio() {
+    if (!audioCtx) {
+      audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){}
+    }
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+  }
+
+  function playTone(freq, duration = 400) {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0.25, audioCtx.currentTime + 0.02);
+    gain.gain.setValueAtTime(0.25, audioCtx.currentTime + duration / 1000 - 0.05);
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + duration / 1000);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + duration / 1000 + 0.05);
+  }
+
+  function playError() {
+    if (!audioCtx) return;
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(60, audioCtx.currentTime + 0.6);
+    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+    gain.gain.linearRampToValueAtTime(0, audioCtx.currentTime + 0.6);
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.65);
+  }
+
+  function layoutBoard() {
+    const w = boardWrap.clientWidth;
+    const h = boardWrap.clientHeight;
+    const size = Math.max(160, Math.min(w, h) - 20);
+    board.style.width = size + 'px';
+    board.style.height = size + 'px';
+  }
+
+  function flashPad(color, duration = 450) {
+    const pad = pads.find(p => p.dataset.color === color);
+    if (!pad) return;
+    pad.classList.add('active');
+    playTone(Number(pad.dataset.freq), duration);
+    setTimeout(() => pad.classList.remove('active'), duration - 50);
+  }
+
+  function setDisabled(disabled) {
+    pads.forEach(p => p.classList.toggle('disabled', disabled));
+  }
+
+  function updateRoundUi() {
+    roundInfo.textContent = sequence.length;
+    centerRound.textContent = sequence.length;
+  }
+
+  async function playSequence() {
+    acceptingInput = false;
+    setDisabled(true);
+    statusEl.textContent = 'צפה ברצף...';
+    const baseDelay = Math.max(260, 620 - sequence.length * 20);
+    await wait(600);
+    for (const color of sequence) {
+      flashPad(color, baseDelay - 60);
+      await wait(baseDelay + 80);
+    }
+    setDisabled(false);
+    acceptingInput = true;
+    userPos = 0;
+    statusEl.textContent = 'תורך! חזור על הרצף';
+  }
+
+  function wait(ms) {
+    return new Promise(r => setTimeout(r, ms));
+  }
+
+  function nextRound() {
+    const colors = ['green', 'red', 'yellow', 'blue'];
+    sequence.push(colors[Math.floor(Math.random() * 4)]);
+    updateRoundUi();
+    playSequence();
+  }
+
+  function startGame() {
+    ensureAudio();
+    overlay.classList.remove('show');
+    sequence = [];
+    userPos = 0;
+    playing = true;
+    updateRoundUi();
+    nextRound();
+  }
+
+  function gameOver() {
+    playing = false;
+    acceptingInput = false;
+    setDisabled(true);
+    playError();
+    const score = sequence.length - 1;
+    if (score > best) {
+      best = score;
+      localStorage.setItem('simon-best', best);
+      bestInfo.textContent = best;
+    }
+    modalTitle.textContent = 'טעית!';
+    modalText.textContent = `הגעת לסבב ${sequence.length}. שיא אישי: ${best}`;
+    modalBtn.textContent = 'שחק שוב';
+    overlay.classList.add('show');
+    statusEl.textContent = 'המשחק נגמר';
+  }
+
+  function onPadClick(pad) {
+    if (!acceptingInput) return;
+    const color = pad.dataset.color;
+    flashPad(color, 350);
+    const expected = sequence[userPos];
+    if (color !== expected) {
+      setTimeout(gameOver, 350);
+      return;
+    }
+    userPos++;
+    if (userPos === sequence.length) {
+      acceptingInput = false;
+      setDisabled(true);
+      statusEl.textContent = 'כל הכבוד! ממשיכים...';
+      setTimeout(nextRound, 900);
+    }
+  }
+
+  pads.forEach(pad => {
+    pad.addEventListener('click', () => onPadClick(pad));
+  });
+
+  btnStart.addEventListener('click', startGame);
+  modalBtn.addEventListener('click', startGame);
+  btnReset.addEventListener('click', () => {
+    overlay.classList.remove('show');
+    sequence = [];
+    userPos = 0;
+    playing = false;
+    acceptingInput = false;
+    setDisabled(false);
+    updateRoundUi();
+    statusEl.textContent = 'לחץ "התחל" כדי להתחיל';
+  });
+
+  window.addEventListener('resize', layoutBoard);
+  layoutBoard();
+
+  function confirmEndGame() {
+    const overlay = document.createElement('div');
+    overlay.className = 'end-overlay';
+    overlay.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+    overlay.querySelector('.yes').addEventListener('click', () => { overlay.remove(); endGame(); });
+    overlay.querySelector('.no').addEventListener('click', () => overlay.remove());
+    document.body.appendChild(overlay);
+  }
+  function endGame() {
+    document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+    setTimeout(() => { location.href = 'index.html'; }, 1500);
+  }
+  document.getElementById('btn-end').addEventListener('click', confirmEndGame);
+</script>
+</body>
+</html>

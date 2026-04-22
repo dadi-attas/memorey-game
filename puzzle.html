@@ -1,0 +1,621 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>פאזל</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🧩</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(135deg, #141e30 0%, #243b55 100%);
+    color: #fff; user-select: none; touch-action: none;
+  }
+  #app {
+    height: 100vh; width: 100vw;
+    display: flex; flex-direction: column;
+    padding: 10px; gap: 8px;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex: 0 0 auto; height: 52px;
+  }
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff; padding: 9px 16px;
+    font-size: 15px; font-weight: 600;
+    border-radius: 12px; cursor: pointer;
+    transition: transform 0.15s, background 0.2s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.96); }
+  .btn.hidden { visibility: hidden; }
+  .info {
+    flex: 1 1 auto; display: flex;
+    justify-content: center; align-items: center;
+    gap: 20px; font-size: 16px; font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .info span b { color: #ffd86b; font-size: 20px; margin-inline-start: 6px; }
+  #preview-wrap {
+    position: absolute;
+    top: 72px;
+    right: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    z-index: 30;
+    pointer-events: none;
+  }
+  #preview-wrap .label {
+    font-size: 12px;
+    letter-spacing: 2px;
+    opacity: 0.65;
+    font-weight: 600;
+  }
+  #preview {
+    border-radius: 10px;
+    background-size: cover; background-position: center;
+    border: 2px solid rgba(255, 255, 255, 0.45);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.45);
+  }
+  #board-wrap {
+    flex: 1 1 auto; position: relative;
+    min-height: 0; min-width: 0;
+    overflow: hidden;
+  }
+  #frame {
+    position: absolute;
+    border: 3px dashed rgba(255, 255, 255, 0.35);
+    border-radius: 8px;
+    background: rgba(0, 0, 0, 0.28);
+    box-shadow: inset 0 0 20px rgba(0, 0, 0, 0.4);
+  }
+  #frame .slot {
+    position: absolute;
+    border: 1px dashed rgba(255, 255, 255, 0.15);
+    pointer-events: none;
+  }
+  #tray {
+    position: absolute;
+    border: 2px dashed rgba(255, 255, 255, 0.12);
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+  }
+  #tray-label {
+    position: absolute;
+    left: 50%; transform: translateX(-50%);
+    font-size: 13px; opacity: 0.55; font-weight: 600;
+    letter-spacing: 3px;
+    pointer-events: none;
+    background: #243b55;
+    padding: 0 10px;
+  }
+  .piece {
+    position: absolute;
+    cursor: grab;
+    filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.55));
+    transition: filter 0.15s;
+    touch-action: none;
+    overflow: visible;
+  }
+  .piece.dragging {
+    cursor: grabbing;
+    filter: drop-shadow(0 10px 14px rgba(0, 0, 0, 0.75)) brightness(1.06);
+  }
+  .piece.locked {
+    cursor: default;
+    filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.4));
+  }
+  #overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  #overlay.show { display: flex; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5);
+  }
+  .modal h2 { font-size: 30px; margin-bottom: 10px; }
+  .modal p { font-size: 17px; margin-bottom: 18px; opacity: 0.95; }
+  .modal .btn { background: #fff; color: #333; font-size: 17px; padding: 12px 26px; }
+  .modal .btn:hover { background: #ffd86b; }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס משחק</button>
+    <div class="info">
+      <span>רמה: <b id="level-num">1</b></span>
+      <span>חלקים: <b id="pieces-num">6</b></span>
+      <span>שובצו: <b id="locked-num">0</b></span>
+    </div>
+    <button id="btn-prev" class="btn hidden">חזור לרמה קודמת</button>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="preview-wrap">
+    <div class="label">תמונת המקור</div>
+    <div id="preview"></div>
+  </div>
+  <div id="board-wrap">
+    <div id="frame"></div>
+    <div id="tray"></div>
+    <div id="tray-label">תפזורת</div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="modal">
+    <h2 id="modal-title">כל הכבוד!</h2>
+    <p id="modal-text"></p>
+    <button id="modal-btn" class="btn">לרמה הבאה</button>
+  </div>
+</div>
+
+<script>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const XLINK_NS = 'http://www.w3.org/1999/xlink';
+
+const LEVELS = [
+  { pieces: 6,  cols: 3, rows: 2 },
+  { pieces: 12, cols: 4, rows: 3 },
+  { pieces: 18, cols: 6, rows: 3 },
+  { pieces: 24, cols: 6, rows: 4 },
+];
+const EMOJIS = [
+  '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🦁','🐯','🐮','🐷','🐵','🐔','🐧','🦉','🦄','🐴','🦓','🦒','🐘','🐢','🦖','🐙','🦀','🐳','🐬','🐠','🦋','🐝',
+  '🍎','🍊','🍓','🍉','🍇','🍍','🥝','🍑','🍒','🥑','🌽','🍔','🍕','🍦','🎂',
+  '🎈','🎁','🎨','⚽','🏀','🎸','🚗','🚒','🚀','✈️','🚁','⛵','🏰','🌋','🌈','☀️','🌙','⭐','❄️','🔥','🎃','🎄','💎','🌻','🌹','🍄','🌍'
+];
+const GRADIENTS = [
+  ['#ff9a9e','#fad0c4'], ['#a1c4fd','#c2e9fb'], ['#fbc2eb','#a6c1ee'],
+  ['#84fab0','#8fd3f4'], ['#a6c0fe','#f68084'], ['#fccb90','#d57eeb'],
+  ['#ffecd2','#fcb69f'], ['#ff6e7f','#bfe9ff'], ['#e0c3fc','#8ec5fc'],
+  ['#f6d365','#fda085'], ['#5ee7df','#b490ca'], ['#fab2ff','#1904e5'],
+];
+
+const frameEl = document.getElementById('frame');
+const trayEl = document.getElementById('tray');
+const wrapEl = document.getElementById('board-wrap');
+const trayLabelEl = document.getElementById('tray-label');
+const levelNumEl = document.getElementById('level-num');
+const piecesNumEl = document.getElementById('pieces-num');
+const lockedNumEl = document.getElementById('locked-num');
+const previewEl = document.getElementById('preview');
+const btnReset = document.getElementById('btn-reset');
+const btnPrev = document.getElementById('btn-prev');
+const overlay = document.getElementById('overlay');
+const modalTitle = document.getElementById('modal-title');
+const modalText = document.getElementById('modal-text');
+const modalBtn = document.getElementById('modal-btn');
+
+let levelIdx = 0;
+let pieceEls = [];
+let lockedCount = 0;
+let currentCellSize = 0;
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function buildImage(emoji, gradient, w, h) {
+  const canvas = document.createElement('canvas');
+  const scale = 2;
+  canvas.width = Math.max(1, Math.round(w * scale));
+  canvas.height = Math.max(1, Math.round(h * scale));
+  const ctx = canvas.getContext('2d');
+  const grad = ctx.createLinearGradient(0, 0, canvas.width, canvas.height);
+  grad.addColorStop(0, gradient[0]);
+  grad.addColorStop(1, gradient[1]);
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+  const emojiSize = Math.floor(Math.min(canvas.width, canvas.height) * 0.78);
+  ctx.font = `${emojiSize}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(emoji, canvas.width / 2, canvas.height / 2 + emojiSize * 0.03);
+  return canvas.toDataURL();
+}
+
+function generateEdges(cols, rows) {
+  const edges = Array.from({ length: rows }, () =>
+    Array.from({ length: cols }, () => ({ top: 'flat', right: 'flat', bottom: 'flat', left: 'flat' }))
+  );
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols - 1; c++) {
+      const rightTab = Math.random() < 0.5;
+      edges[r][c].right = rightTab ? 'out' : 'in';
+      edges[r][c + 1].left = rightTab ? 'in' : 'out';
+    }
+  }
+  for (let r = 0; r < rows - 1; r++) {
+    for (let c = 0; c < cols; c++) {
+      const bottomTab = Math.random() < 0.5;
+      edges[r][c].bottom = bottomTab ? 'out' : 'in';
+      edges[r + 1][c].top = bottomTab ? 'in' : 'out';
+    }
+  }
+  return edges;
+}
+
+// Build SVG path for a piece. Coordinates in local piece space:
+// logical cell occupies [ts, ts] to [ts+cs, ts+cs]. Bounding box is [0,0] to [cs+2ts, cs+2ts].
+// Each edge is traced by parameterizing with t in [0,1] along the edge and n (normal offset
+// times ts) perpendicular to it. This guarantees perfect symmetry: an 'out' curve and an
+// 'in' curve on the shared edge of two adjacent pieces trace the exact same global locus.
+function piecePath(edges, cs, ts) {
+  const ox = ts, oy = ts;
+  let d = `M ${ox} ${oy}`;
+  // For each edge: P0 -> P1 tracing clockwise around piece, with outward normal (nx, ny).
+  d += edgeSeg(edges.top,    ox,      oy,      ox + cs, oy,       0, -1, ts);
+  d += edgeSeg(edges.right,  ox + cs, oy,      ox + cs, oy + cs,  1,  0, ts);
+  d += edgeSeg(edges.bottom, ox + cs, oy + cs, ox,      oy + cs,  0,  1, ts);
+  d += edgeSeg(edges.left,   ox,      oy + cs, ox,      oy,      -1,  0, ts);
+  d += ' Z';
+  return d;
+}
+
+function edgeSeg(type, x0, y0, x1, y1, nx, ny, ts) {
+  if (type === 'flat') return ` L ${x1} ${y1}`;
+  const sign = type === 'out' ? 1 : -1;
+  const dx = x1 - x0, dy = y1 - y0;
+  // P(t, n): position along edge at parameter t, with perpendicular offset n (scaled by ts).
+  // sign flips the whole bump direction so that 'in' mirrors 'out' about the edge axis.
+  const P = (t, n) => [
+    x0 + t * dx + sign * n * ts * nx,
+    y0 + t * dy + sign * n * ts * ny
+  ];
+  // Symmetric control points around t=0.5 create an identical jigsaw shape regardless
+  // of traversal direction — required for 'out' and 'in' on a shared edge to align.
+  const p1 = P(0.37, 0);
+  const c1 = P(0.37, 0.50);
+  const c2 = P(0.25, 0.95);
+  const pk = P(0.50, 0.85);
+  const c3 = P(0.75, 0.95);
+  const c4 = P(0.63, 0.50);
+  const p2 = P(0.63, 0);
+  return ` L ${p1[0]} ${p1[1]}`
+       + ` C ${c1[0]} ${c1[1]} ${c2[0]} ${c2[1]} ${pk[0]} ${pk[1]}`
+       + ` C ${c3[0]} ${c3[1]} ${c4[0]} ${c4[1]} ${p2[0]} ${p2[1]}`
+       + ` L ${x1} ${y1}`;
+}
+
+const PREVIEW_LANE_W = 195; // reserved area on the right for the preview panel
+
+function computeLayout(wrapW, wrapH, cols, rows, N) {
+  const frameTopMargin = 6;
+  const gapBetween = 18;
+  const bottomMargin = 6;
+  const frameMaxRatio = 0.56;
+  const gameW = wrapW - PREVIEW_LANE_W; // usable horizontal area excluding preview lane
+  let cellSize = Math.floor(Math.min((gameW * 0.96) / cols, (wrapH * frameMaxRatio) / rows));
+  cellSize = Math.max(40, cellSize);
+
+  while (cellSize > 40) {
+    const ts = Math.round(cellSize * 0.20);
+    const pb = cellSize + 2 * ts;
+    const frameH = cellSize * rows;
+    const trayAvailH = wrapH - frameTopMargin - frameH - gapBetween - bottomMargin - 14;
+    const trayAvailW = gameW - 16;
+    const trayCols = Math.max(1, Math.floor(trayAvailW / pb));
+    const trayRows = Math.ceil(N / trayCols);
+    if (trayRows * pb <= trayAvailH && trayCols * pb <= trayAvailW) {
+      return { cellSize, ts, pb, frameH, trayCols, trayRows, gameW,
+               frameTopMargin, gapBetween, bottomMargin, trayAvailW, trayAvailH };
+    }
+    cellSize -= 2;
+  }
+  const ts = Math.round(cellSize * 0.20);
+  const pb = cellSize + 2 * ts;
+  const frameH = cellSize * rows;
+  const trayAvailH = wrapH - frameTopMargin - frameH - gapBetween - bottomMargin - 14;
+  const trayAvailW = gameW - 16;
+  const trayCols = Math.max(1, Math.floor(trayAvailW / pb));
+  const trayRows = Math.ceil(N / trayCols);
+  return { cellSize, ts, pb, frameH, trayCols, trayRows, gameW,
+           frameTopMargin, gapBetween, bottomMargin, trayAvailW, trayAvailH };
+}
+
+function buildLevel() {
+  const { pieces, cols, rows } = LEVELS[levelIdx];
+  pieceEls.forEach(p => p.remove());
+  pieceEls = [];
+  lockedCount = 0;
+  lockedNumEl.textContent = 0;
+  piecesNumEl.textContent = pieces;
+  levelNumEl.textContent = levelIdx + 1;
+  btnPrev.classList.toggle('hidden', levelIdx === 0);
+
+  const wrapW = wrapEl.clientWidth;
+  const wrapH = wrapEl.clientHeight;
+  if (wrapW === 0 || wrapH === 0) {
+    requestAnimationFrame(buildLevel);
+    return;
+  }
+
+  const L = computeLayout(wrapW, wrapH, cols, rows, pieces);
+  const { cellSize, ts, pb, frameH, trayCols, trayRows, gameW,
+          frameTopMargin, gapBetween, bottomMargin } = L;
+  const frameW = cellSize * cols;
+  const frameLeft = (gameW - frameW) / 2;
+  const frameTop = frameTopMargin;
+  currentCellSize = cellSize;
+
+  frameEl.style.left = frameLeft + 'px';
+  frameEl.style.top = frameTop + 'px';
+  frameEl.style.width = frameW + 'px';
+  frameEl.style.height = frameH + 'px';
+  frameEl.innerHTML = '';
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const slot = document.createElement('div');
+      slot.className = 'slot';
+      slot.style.left = (c * cellSize) + 'px';
+      slot.style.top = (r * cellSize) + 'px';
+      slot.style.width = cellSize + 'px';
+      slot.style.height = cellSize + 'px';
+      frameEl.appendChild(slot);
+    }
+  }
+
+  const trayTop = frameTop + frameH + gapBetween;
+  const trayH = trayRows * pb + 10;
+  const trayW = trayCols * pb + 10;
+  const trayLeft = (gameW - trayW) / 2;
+  trayEl.style.left = trayLeft + 'px';
+  trayEl.style.top = trayTop + 'px';
+  trayEl.style.width = trayW + 'px';
+  trayEl.style.height = trayH + 'px';
+  trayLabelEl.style.left = (trayLeft + trayW / 2) + 'px';
+  trayLabelEl.style.top = (trayTop - 10) + 'px';
+  trayLabelEl.style.transform = 'translateX(-50%)';
+
+  const emoji = pick(EMOJIS);
+  const gradient = pick(GRADIENTS);
+  const imageUrl = buildImage(emoji, gradient, frameW, frameH);
+  previewEl.style.backgroundImage = `url(${imageUrl})`;
+  const previewW = 170;
+  const previewH = Math.round(previewW * rows / cols);
+  previewEl.style.width = previewW + 'px';
+  previewEl.style.height = previewH + 'px';
+
+  const edgesGrid = generateEdges(cols, rows);
+
+  // Create pieces with unique target positions and shuffled tray positions
+  const trayOrder = shuffle(Array.from({ length: trayCols * trayRows }, (_, i) => i));
+
+  let pi = 0;
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const edges = edgesGrid[r][c];
+      const pathD = piecePath(edges, cellSize, ts);
+
+      const svg = document.createElementNS(SVG_NS, 'svg');
+      svg.classList.add('piece');
+      svg.setAttribute('width', pb);
+      svg.setAttribute('height', pb);
+      svg.setAttribute('viewBox', `0 0 ${pb} ${pb}`);
+
+      const clipId = `clip-L${levelIdx}-${r}-${c}-${Math.random().toString(36).slice(2, 7)}`;
+      const defs = document.createElementNS(SVG_NS, 'defs');
+      const clip = document.createElementNS(SVG_NS, 'clipPath');
+      clip.setAttribute('id', clipId);
+      clip.setAttribute('clipPathUnits', 'userSpaceOnUse');
+      const cpath = document.createElementNS(SVG_NS, 'path');
+      cpath.setAttribute('d', pathD);
+      clip.appendChild(cpath);
+      defs.appendChild(clip);
+      svg.appendChild(defs);
+
+      // Grouped image so clipping is contained; ensures pixel alignment.
+      const g = document.createElementNS(SVG_NS, 'g');
+      g.setAttribute('clip-path', `url(#${clipId})`);
+      const img = document.createElementNS(SVG_NS, 'image');
+      img.setAttributeNS(XLINK_NS, 'xlink:href', imageUrl);
+      img.setAttribute('href', imageUrl);
+      img.setAttribute('width', frameW);
+      img.setAttribute('height', frameH);
+      img.setAttribute('x', -(c * cellSize) + ts);
+      img.setAttribute('y', -(r * cellSize) + ts);
+      img.setAttribute('preserveAspectRatio', 'none');
+      g.appendChild(img);
+      svg.appendChild(g);
+
+      // Edge stroke on top (visual definition)
+      const stroke = document.createElementNS(SVG_NS, 'path');
+      stroke.setAttribute('d', pathD);
+      stroke.setAttribute('fill', 'none');
+      stroke.setAttribute('stroke', 'rgba(0,0,0,0.45)');
+      stroke.setAttribute('stroke-width', '1.2');
+      stroke.setAttribute('stroke-linejoin', 'round');
+      stroke.setAttribute('pointer-events', 'none');
+      svg.appendChild(stroke);
+
+      svg.dataset.row = r;
+      svg.dataset.col = c;
+      svg.dataset.targetLeft = (frameLeft + c * cellSize - ts);
+      svg.dataset.targetTop = (frameTop + r * cellSize - ts);
+
+      // Position in tray: non-overlapping grid cell
+      const slotIdx = trayOrder[pi++];
+      const sx = slotIdx % trayCols;
+      const sy = Math.floor(slotIdx / trayCols);
+      const px = trayLeft + 5 + sx * pb;
+      const py = trayTop + 5 + sy * pb;
+      svg.style.left = px + 'px';
+      svg.style.top = py + 'px';
+      svg.style.zIndex = 5 + Math.floor(Math.random() * 20);
+
+      attachDrag(svg);
+      wrapEl.appendChild(svg);
+      pieceEls.push(svg);
+    }
+  }
+}
+
+let dragging = null;
+let dragOffX = 0, dragOffY = 0;
+
+function attachDrag(piece) {
+  piece.addEventListener('pointerdown', e => {
+    if (piece.classList.contains('locked')) return;
+    e.preventDefault();
+    dragging = piece;
+    try { piece.setPointerCapture(e.pointerId); } catch (_) {}
+    piece.classList.add('dragging');
+    const rect = piece.getBoundingClientRect();
+    dragOffX = e.clientX - rect.left;
+    dragOffY = e.clientY - rect.top;
+    piece.style.zIndex = 500;
+  });
+  piece.addEventListener('pointermove', e => {
+    if (dragging !== piece) return;
+    const wrapRect = wrapEl.getBoundingClientRect();
+    const nx = e.clientX - wrapRect.left - dragOffX;
+    const ny = e.clientY - wrapRect.top - dragOffY;
+    piece.style.left = nx + 'px';
+    piece.style.top = ny + 'px';
+  });
+  const end = e => {
+    if (dragging !== piece) return;
+    dragging = null;
+    piece.classList.remove('dragging');
+    try { piece.releasePointerCapture(e.pointerId); } catch (_) {}
+    const tgtLeft = parseFloat(piece.dataset.targetLeft);
+    const tgtTop = parseFloat(piece.dataset.targetTop);
+    const curLeft = parseFloat(piece.style.left);
+    const curTop = parseFloat(piece.style.top);
+    const dx = curLeft - tgtLeft;
+    const dy = curTop - tgtTop;
+    const threshold = currentCellSize * 0.35;
+    if (Math.abs(dx) < threshold && Math.abs(dy) < threshold) {
+      piece.style.left = tgtLeft + 'px';
+      piece.style.top = tgtTop + 'px';
+      piece.classList.add('locked');
+      piece.style.zIndex = 50;
+      lockedCount++;
+      lockedNumEl.textContent = lockedCount;
+      if (lockedCount === LEVELS[levelIdx].pieces) {
+        setTimeout(onLevelComplete, 500);
+      }
+    } else {
+      piece.style.zIndex = 20 + Math.floor(Math.random() * 20);
+    }
+  };
+  piece.addEventListener('pointerup', end);
+  piece.addEventListener('pointercancel', end);
+}
+
+function onLevelComplete() {
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (isLast) {
+    modalTitle.textContent = 'סיימת את כל הרמות!';
+    modalText.textContent = 'אלוף פאזלים!';
+    modalBtn.textContent = 'התחל מחדש';
+    modalBtn.dataset.action = 'restart';
+  } else {
+    modalTitle.textContent = 'כל הכבוד!';
+    modalText.textContent = 'פתרת את הפאזל';
+    modalBtn.textContent = 'לרמה הבאה';
+    modalBtn.dataset.action = 'next';
+  }
+  overlay.classList.add('show');
+}
+
+modalBtn.addEventListener('click', () => {
+  const action = modalBtn.dataset.action;
+  overlay.classList.remove('show');
+  if (action === 'next') {
+    levelIdx = Math.min(levelIdx + 1, LEVELS.length - 1);
+  } else {
+    levelIdx = 0;
+  }
+  buildLevel();
+});
+btnReset.addEventListener('click', () => {
+  overlay.classList.remove('show');
+  levelIdx = 0;
+  buildLevel();
+});
+btnPrev.addEventListener('click', () => {
+  if (levelIdx === 0) return;
+  overlay.classList.remove('show');
+  levelIdx--;
+  buildLevel();
+});
+
+let resizeTO = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTO);
+  resizeTO = setTimeout(buildLevel, 200);
+});
+
+requestAnimationFrame(buildLevel);
+
+function confirmEndGame() {
+  const overlay = document.createElement('div');
+  overlay.className = 'end-overlay';
+  overlay.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  overlay.querySelector('.yes').addEventListener('click', () => { overlay.remove(); endGame(); });
+  overlay.querySelector('.no').addEventListener('click', () => overlay.remove());
+  document.body.appendChild(overlay);
+}
+function endGame() {
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+document.getElementById('btn-end').addEventListener('click', confirmEndGame);
+</script>
+</body>
+</html>

@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>עצור בזמן</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⏱️</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff; user-select: none; touch-action: manipulation;
+  }
+  #app { height: 100vh; width: 100vw; display: flex; flex-direction: column; padding: 12px; gap: 10px; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex: 0 0 auto; height: 58px;
+  }
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff; padding: 11px 20px;
+    font-size: 17px; font-weight: 700;
+    border-radius: 12px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.94); }
+  .info {
+    flex: 1 1 auto; display: flex; justify-content: center; align-items: center;
+    gap: 28px; font-size: 22px; font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .info span b { font-size: 28px; margin-inline-start: 6px; }
+  .info .ok b { color: #7dd87d; }
+  .info .err b { color: #ff8a8a; }
+  .info .counter { transition: transform 0.1s; display: inline-flex; align-items: center; }
+  .info .counter.bump { animation: counterBump 0.38s ease; }
+  @keyframes counterBump {
+    0%   { transform: scale(1) rotate(0); }
+    25%  { transform: scale(1.18) rotate(-4deg); }
+    55%  { transform: scale(1.12) rotate(4deg); }
+    80%  { transform: scale(1.05) rotate(-1deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+
+  #status {
+    text-align: center;
+    font-size: 22px; font-weight: 700;
+    flex: 0 0 auto;
+    min-height: 30px;
+    color: #ffd86b;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+  }
+
+  #game-area {
+    flex: 1 1 auto;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    min-height: 0; min-width: 0;
+    position: relative;
+  }
+
+  #meter-wrap {
+    width: 100%;
+    max-width: 1400px;
+    display: flex; justify-content: center; align-items: center;
+    padding-inline-end: 340px; /* leave room for STOP button on right (RTL) */
+  }
+  @media (max-width: 900px) {
+    #meter-wrap { padding-inline-end: 230px; }
+  }
+
+  #meter {
+    position: relative;
+    width: 100%;
+    height: 80px;
+    background: linear-gradient(180deg, #15263f 0%, #0c1a2d 100%);
+    border-radius: 40px;
+    box-shadow: inset 0 4px 14px rgba(0,0,0,0.6), 0 4px 14px rgba(0,0,0,0.3);
+    border: 3px solid rgba(255,255,255,0.15);
+    overflow: hidden;
+    transition: box-shadow 0.25s;
+  }
+  #meter.correct {
+    box-shadow: inset 0 0 30px rgba(86,195,77,0.9), 0 0 40px rgba(86,195,77,0.5);
+    animation: meterPulseGreen 0.8s ease;
+  }
+  #meter.wrong {
+    box-shadow: inset 0 0 30px rgba(229,91,91,0.9), 0 0 40px rgba(229,91,91,0.5);
+    animation: meterShake 0.5s ease;
+  }
+  @keyframes meterPulseGreen {
+    0%, 100% { transform: scale(1); }
+    40%      { transform: scale(1.03); }
+  }
+  @keyframes meterShake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+
+  #green-zone {
+    position: absolute;
+    top: 0; bottom: 0;
+    background: linear-gradient(180deg, #7dd87d 0%, #3fa83f 100%);
+    box-shadow: inset 0 0 10px rgba(255,255,255,0.4), 0 0 15px rgba(86,195,77,0.6);
+    transition: left 0.25s ease, width 0.25s ease;
+  }
+
+  #indicator {
+    position: absolute;
+    top: -6px; bottom: -6px;
+    width: 7px;
+    background: linear-gradient(180deg, #fff9c7 0%, #ffb347 50%, #ff7a1a 100%);
+    box-shadow: 0 0 18px rgba(255,180,50,0.95), 0 0 6px rgba(255,255,255,0.8);
+    border-radius: 4px;
+    transform: translateX(-50%);
+  }
+
+  #btn-stop {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: min(300px, 28vw);
+    height: min(170px, 22vh);
+    min-width: 200px;
+    min-height: 130px;
+    background: linear-gradient(145deg, #ff6b6b 0%, #d83030 100%);
+    border: 5px solid rgba(255,255,255,0.85);
+    color: #fff;
+    font-size: clamp(40px, 6vw, 72px);
+    font-weight: 900;
+    border-radius: 24px;
+    cursor: pointer;
+    letter-spacing: 4px;
+    text-shadow: 0 3px 6px rgba(0,0,0,0.4);
+    box-shadow: 0 10px 24px rgba(216,48,48,0.55), 0 0 30px rgba(216,48,48,0.3), inset 0 -6px 12px rgba(0,0,0,0.2), inset 0 3px 6px rgba(255,255,255,0.3);
+    transition: transform 0.08s, box-shadow 0.12s, filter 0.12s;
+    z-index: 50;
+  }
+  #btn-stop:hover { filter: brightness(1.08); }
+  #btn-stop:active {
+    transform: scale(0.93);
+    box-shadow: 0 4px 12px rgba(216,48,48,0.4), inset 0 4px 10px rgba(0,0,0,0.3);
+  }
+  #btn-stop:disabled {
+    filter: grayscale(0.4) brightness(0.75);
+    cursor: default;
+  }
+
+  /* End-game dialog & goodbye */
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal p { font-size: 15px; margin-bottom: 14px; opacity: 0.9; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס</button>
+    <div class="info">
+      <span class="counter ok" id="counter-ok">ניקוד: <b id="score">0</b></span>
+      <span class="counter err" id="counter-err">שגיאות: <b id="errors">0</b></span>
+    </div>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+
+  <div id="status">לחץ על "עצור" כשהמחוון בתוך הירוק</div>
+
+  <div id="game-area">
+    <div id="meter-wrap">
+      <div id="meter">
+        <div id="green-zone"></div>
+        <div id="indicator"></div>
+      </div>
+    </div>
+  </div>
+</div>
+<button id="btn-stop">עצור</button>
+
+<script>
+const LEVELS = [
+  { greenPct: 0.28, cycleMs: 4500, successesToAdvance: 5 },
+  { greenPct: 0.22, cycleMs: 3800, successesToAdvance: 5 },
+  { greenPct: 0.17, cycleMs: 3200, successesToAdvance: 6 },
+  { greenPct: 0.13, cycleMs: 2600, successesToAdvance: 7 },
+  { greenPct: 0.10, cycleMs: 2200, successesToAdvance: 8 },
+  { greenPct: 0.07, cycleMs: 1800, successesToAdvance: Infinity },
+];
+
+const INACTIVITY_MS = 12000;
+const AUTO_END_MS = 10000;
+const RESULT_MS = 950;
+const EDGE_MARGIN = 0.05;
+
+const meterEl = document.getElementById('meter');
+const greenEl = document.getElementById('green-zone');
+const indEl   = document.getElementById('indicator');
+const scoreEl = document.getElementById('score');
+const errorsEl = document.getElementById('errors');
+const counterOk = document.getElementById('counter-ok');
+const counterErr = document.getElementById('counter-err');
+const statusEl = document.getElementById('status');
+const btnStop = document.getElementById('btn-stop');
+const btnReset = document.getElementById('btn-reset');
+const btnEnd = document.getElementById('btn-end');
+
+let levelIdx = 0;
+let successAtLevel = 0;
+let score = 0;
+let errors = 0;
+let missStreak = 0;
+const MISSES_TO_DESCEND = 5;
+let state = 'running';         // 'running' | 'result' | 'paused' | 'ended'
+let startTime = null;
+let greenStart = 0;            // 0..1
+let indicatorPos = 0;          // 0..1
+let lastActionTime = 0;
+let rafId = null;
+
+function currentLevel() { return LEVELS[levelIdx]; }
+
+// --- Audio ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.15, startOffset = 0, freqEnd = null }) {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  const t0 = ac.currentTime + startOffset;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function playSuccess() {
+  tone({ freq: 523.25, type: 'sine', duration: 0.13, volume: 0.16 });
+  tone({ freq: 659.25, type: 'sine', duration: 0.14, volume: 0.16, startOffset: 0.1 });
+}
+function playError() { tone({ freq: 260, freqEnd: 150, type: 'sawtooth', duration: 0.3, volume: 0.13 }); }
+function playLevelUp() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.18, volume: 0.18, startOffset: i * 0.1 });
+  });
+}
+
+// --- Counters ---
+function bumpCounter(el) {
+  el.classList.remove('bump');
+  void el.offsetWidth;
+  el.classList.add('bump');
+}
+function updateInfo() {
+  scoreEl.textContent = score;
+  errorsEl.textContent = errors;
+}
+
+// --- Attempt setup ---
+function newAttempt() {
+  const greenW = currentLevel().greenPct;
+  const availRange = 1 - greenW - 2 * EDGE_MARGIN;
+  greenStart = EDGE_MARGIN + Math.random() * availRange;
+  greenEl.style.left = (greenStart * 100) + '%';
+  greenEl.style.width = (greenW * 100) + '%';
+  startTime = null;
+  state = 'running';
+  btnStop.disabled = false;
+  statusEl.textContent = 'לחץ על "עצור" כשהמחוון בתוך הירוק';
+  lastActionTime = performance.now();
+}
+
+// --- Main loop ---
+function loop(t) {
+  if (state === 'running') {
+    if (startTime === null) startTime = t;
+    const elapsed = t - startTime;
+    const cycle = currentLevel().cycleMs;
+    const phase = (elapsed % (2 * cycle)) / cycle;
+    indicatorPos = phase < 1 ? phase : 2 - phase;
+    indEl.style.left = (indicatorPos * 100) + '%';
+
+    // Inactivity check
+    if (performance.now() - lastActionTime > INACTIVITY_MS) {
+      showInactivityDialog();
+    }
+  }
+  rafId = requestAnimationFrame(loop);
+}
+
+// --- STOP press ---
+btnStop.addEventListener('click', () => {
+  if (state !== 'running') return;
+  getAudio();
+  state = 'result';
+  btnStop.disabled = true;
+  lastActionTime = performance.now();
+
+  const greenEnd = greenStart + currentLevel().greenPct;
+  const success = indicatorPos >= greenStart && indicatorPos <= greenEnd;
+
+  if (success) {
+    meterEl.classList.add('correct');
+    playSuccess();
+    score++;
+    successAtLevel++;
+    missStreak = 0;
+    updateInfo();
+    bumpCounter(counterOk);
+    statusEl.textContent = 'מצוין!';
+
+    setTimeout(() => {
+      meterEl.classList.remove('correct');
+      if (successAtLevel >= currentLevel().successesToAdvance && levelIdx < LEVELS.length - 1) {
+        levelIdx++;
+        successAtLevel = 0;
+        playLevelUp();
+      }
+      newAttempt();
+    }, RESULT_MS);
+  } else {
+    meterEl.classList.add('wrong');
+    playError();
+    errors++;
+    missStreak++;
+    updateInfo();
+    bumpCounter(counterErr);
+    statusEl.textContent = 'החטאת, מנסים שוב';
+
+    setTimeout(() => {
+      meterEl.classList.remove('wrong');
+      // Silently drop a level after N misses in a row
+      if (missStreak >= MISSES_TO_DESCEND && levelIdx > 0) {
+        levelIdx--;
+        successAtLevel = 0;
+        missStreak = 0;
+      }
+      newAttempt();
+    }, RESULT_MS);
+  }
+});
+
+// --- Inactivity dialog ---
+function showInactivityDialog() {
+  if (state !== 'running') return;
+  state = 'paused';
+  btnStop.disabled = true;
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>12 שניות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  let to;
+  const cleanup = (choice) => {
+    if (to) { clearTimeout(to); to = null; }
+    if (o.parentNode) o.remove();
+    if (choice === 'yes') {
+      lastActionTime = performance.now();
+      startTime = null; // restart timing from current frame
+      state = 'running';
+      btnStop.disabled = false;
+    } else {
+      endGame();
+    }
+  };
+  o.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  o.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+  document.body.appendChild(o);
+}
+
+// --- Reset ---
+btnReset.addEventListener('click', () => {
+  getAudio();
+  levelIdx = 0;
+  successAtLevel = 0;
+  missStreak = 0;
+  score = 0;
+  errors = 0;
+  updateInfo();
+  newAttempt();
+});
+
+// --- End-game ---
+function confirmEndGame() {
+  state = 'paused';
+  btnStop.disabled = true;
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  o.querySelector('.yes').addEventListener('click', () => { o.remove(); endGame(); });
+  o.querySelector('.no').addEventListener('click', () => {
+    o.remove();
+    lastActionTime = performance.now();
+    startTime = null;
+    state = 'running';
+    btnStop.disabled = false;
+  });
+  document.body.appendChild(o);
+}
+function endGame() {
+  state = 'ended';
+  if (rafId) cancelAnimationFrame(rafId);
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+btnEnd.addEventListener('click', confirmEndGame);
+
+// --- Start ---
+newAttempt();
+updateInfo();
+rafId = requestAnimationFrame(loop);
+</script>
+</body>
+</html>

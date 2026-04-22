@@ -1,0 +1,531 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>מה השתנה?</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔍</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff; user-select: none; touch-action: manipulation;
+  }
+  #app {
+    height: 100vh; width: 100vw;
+    display: flex; flex-direction: column;
+    padding: 12px; gap: 10px;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex: 0 0 auto; height: 58px;
+  }
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff; padding: 11px 20px;
+    font-size: 17px; font-weight: 700;
+    border-radius: 12px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.94); }
+  .btn.hidden { visibility: hidden; }
+  .info {
+    flex: 1 1 auto; display: flex; justify-content: center; align-items: center;
+    gap: 28px; font-size: 20px; font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .info span b { color: #ffd86b; font-size: 26px; margin-inline-start: 6px; }
+
+  #status {
+    flex: 0 0 auto;
+    text-align: center;
+    font-size: 24px; font-weight: 700;
+    min-height: 34px;
+    color: #ffd86b;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+  }
+
+  #board-wrap {
+    flex: 1 1 auto;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 0; min-width: 0;
+    padding: 4px;
+  }
+  #board {
+    display: grid;
+    gap: var(--gap, 14px);
+  }
+
+  .card {
+    position: relative;
+    cursor: pointer;
+    perspective: 900px;
+  }
+  .card.locked { cursor: default; }
+  .card.empty { visibility: hidden; pointer-events: none; }
+  .card-inner {
+    position: absolute;
+    inset: 0;
+    transition: transform 0.5s;
+    transform-style: preserve-3d;
+  }
+  .card.flipped .card-inner { transform: rotateY(180deg); }
+  .card-face {
+    position: absolute;
+    inset: 0;
+    border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    border: 3px solid rgba(255, 255, 255, 0.35);
+  }
+  .card-front {
+    background: #fff;
+    color: #222;
+    font-size: var(--emoji-size, 64px);
+  }
+  .card-back {
+    background: linear-gradient(135deg, #ff9966 0%, #ff5e62 100%);
+    color: rgba(255, 255, 255, 0.92);
+    font-weight: 900;
+    font-size: var(--q-size, 56px);
+    transform: rotateY(180deg);
+    text-shadow: 0 3px 6px rgba(0, 0, 0, 0.25);
+  }
+
+  .card.correct .card-front {
+    background: #a8e6a1; color: #14532d;
+    animation: pulseGreen 0.8s ease;
+  }
+  .card.wrong .card-front {
+    background: #ffb3b3; color: #7a1a1a;
+    animation: shake 0.5s ease;
+  }
+  @keyframes pulseGreen {
+    0% { box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+    50% { box-shadow: 0 0 35px rgba(86, 195, 77, 0.9); transform: scale(1.05); }
+    100% { box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-10px); }
+    40% { transform: translateX(10px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+
+  #overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  #overlay.show { display: flex; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 30px 44px; border-radius: 22px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+  }
+  .modal .emoji { font-size: 64px; margin-bottom: 10px; }
+  .modal h2 { font-size: 30px; margin-bottom: 10px; }
+  .modal p { font-size: 18px; margin-bottom: 20px; opacity: 0.95; }
+  .modal .btn { background: #fff; color: #333; font-size: 18px; padding: 12px 28px; }
+  .modal .btn:hover { background: #ffd86b; }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס</button>
+    <div class="info">
+      <span>קלפים: <b id="num-cards">3</b></span>
+      <span>נכונים: <b id="progress">0/3</b></span>
+    </div>
+    <button id="btn-prev" class="btn hidden">רמה קודמת</button>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="status">זכור את הקלפים...</div>
+  <div id="board-wrap">
+    <div id="board"></div>
+  </div>
+</div>
+
+<div id="overlay">
+  <div class="modal">
+    <div class="emoji" id="modal-emoji">🏆</div>
+    <h2 id="modal-title">מצוין!</h2>
+    <p id="modal-text"></p>
+    <button id="modal-btn" class="btn">המשך</button>
+  </div>
+</div>
+
+<script>
+const LEVELS = [
+  { cards: 3,  cols: 3, rows: 1 },
+  { cards: 4,  cols: 2, rows: 2 },
+  { cards: 5,  cols: 3, rows: 2 },
+  { cards: 6,  cols: 3, rows: 2 },
+  { cards: 7,  cols: 4, rows: 2 },
+  { cards: 8,  cols: 4, rows: 2 },
+  { cards: 9,  cols: 3, rows: 3 },
+  { cards: 10, cols: 5, rows: 2 },
+  { cards: 11, cols: 4, rows: 3 },
+  { cards: 12, cols: 4, rows: 3 },
+];
+
+const EMOJIS = [
+  '🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🦁','🐯','🐮','🐷','🐸','🐵','🐔','🐧','🦉','🦄','🐴','🦓','🦒','🐘','🐢','🦖','🐙','🦀','🐳','🐬','🐠','🦋','🐝','🦇',
+  '🍎','🍊','🍋','🍌','🍉','🍇','🍓','🍑','🍒','🥝','🍍','🥭','🌽','🥕','🥑','🍔','🍕','🌮','🍿','🎂','🍩','🍪','🍦',
+  '⚽','🏀','🏈','🎾','🎱','🎯','🎲','🎸','🎹','🎺','🥁','🎨','🎭',
+  '🚗','🚕','🚒','🚜','🚀','✈️','🚁','⛵','🚂','🏍️','🚲',
+  '⭐','🌟','☀️','🌙','🌈','⚡','🔥','❄️','☃️','💎','🎁','🎈','🎉','🏆','🎃','🌺','🌻','🌹','🌷','🍄','🦄'
+];
+
+const REVEAL_MS = 5000;
+const FLIP_MS = 500;
+const FACEDOWN_MS = 1000;
+const RESULT_MS = 1100;
+const SUCCESSES_TO_ADVANCE = 3;
+
+const boardEl = document.getElementById('board');
+const boardWrap = document.getElementById('board-wrap');
+const numCardsEl = document.getElementById('num-cards');
+const progressEl = document.getElementById('progress');
+const statusEl = document.getElementById('status');
+const btnReset = document.getElementById('btn-reset');
+const btnPrev = document.getElementById('btn-prev');
+const overlay = document.getElementById('overlay');
+const modalBtn = document.getElementById('modal-btn');
+const modalTitle = document.getElementById('modal-title');
+const modalText = document.getElementById('modal-text');
+const modalEmoji = document.getElementById('modal-emoji');
+
+let levelIdx = 0;
+let successCount = 0;
+let state = 'idle';
+let cards = [];          // array of { el, front, back }
+let currentEmojis = [];
+let changedIdx = -1;
+let replacementEmoji = '';
+let abortSignal = { aborted: false };
+
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+function wait(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// --- Audio ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.15, startOffset = 0, freqEnd = null }) {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  const t0 = ac.currentTime + startOffset;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function playSuccess() {
+  tone({ freq: 523.25, type: 'sine', duration: 0.13, volume: 0.16 });
+  tone({ freq: 659.25, type: 'sine', duration: 0.14, volume: 0.16, startOffset: 0.1 });
+}
+function playError() { tone({ freq: 260, freqEnd: 150, type: 'sawtooth', duration: 0.3, volume: 0.13 }); }
+function playFlip() { tone({ freq: 500, type: 'triangle', duration: 0.05, volume: 0.08 }); }
+function playLevelUp() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.18, volume: 0.18, startOffset: i * 0.1 });
+  });
+}
+
+// --- Layout ---
+function layoutBoard() {
+  const { cards: n, cols, rows } = LEVELS[levelIdx];
+  const w = boardWrap.clientWidth;
+  const h = boardWrap.clientHeight;
+  if (w === 0 || h === 0) return;
+  const gap = 14;
+  const availW = w - gap * (cols - 1);
+  const availH = h - gap * (rows - 1);
+  const cardSize = Math.floor(Math.min(availW / cols, availH / rows));
+  const boardW = cols * cardSize + gap * (cols - 1);
+  const boardH = rows * cardSize + gap * (rows - 1);
+  boardEl.style.width = boardW + 'px';
+  boardEl.style.height = boardH + 'px';
+  boardEl.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  boardEl.style.gridTemplateRows = `repeat(${rows}, 1fr)`;
+  boardEl.style.setProperty('--gap', gap + 'px');
+  boardEl.style.setProperty('--emoji-size', Math.floor(cardSize * 0.55) + 'px');
+  boardEl.style.setProperty('--q-size', Math.floor(cardSize * 0.5) + 'px');
+}
+
+// --- Rendering ---
+function renderCards(emojis, flipped) {
+  const { cards: n, cols, rows } = LEVELS[levelIdx];
+  const total = cols * rows;
+  boardEl.innerHTML = '';
+  cards = [];
+  for (let i = 0; i < total; i++) {
+    const card = document.createElement('div');
+    card.className = 'card';
+    if (flipped) card.classList.add('flipped');
+    if (i >= n) {
+      card.classList.add('empty');
+      boardEl.appendChild(card);
+      cards.push({ el: card, front: null, back: null });
+      continue;
+    }
+    card.innerHTML = `
+      <div class="card-inner">
+        <div class="card-face card-front">${emojis[i]}</div>
+        <div class="card-face card-back">?</div>
+      </div>`;
+    const front = card.querySelector('.card-front');
+    const back = card.querySelector('.card-back');
+    card.addEventListener('click', () => onCardClick(i));
+    boardEl.appendChild(card);
+    cards.push({ el: card, front, back });
+  }
+}
+
+function flipAll(flipped) {
+  cards.forEach(c => {
+    if (c.el.classList.contains('empty')) return;
+    c.el.classList.toggle('flipped', flipped);
+  });
+}
+
+function updateFront(idx, emoji) {
+  if (!cards[idx] || !cards[idx].front) return;
+  cards[idx].front.textContent = emoji;
+}
+
+// --- Round flow ---
+async function startRound() {
+  abortSignal.aborted = true;
+  abortSignal = { aborted: false };
+  const mySignal = abortSignal;
+
+  const { cards: n } = LEVELS[levelIdx];
+  updateInfo();
+  btnPrev.classList.toggle('hidden', levelIdx === 0);
+
+  // Pick emojis
+  const shuffled = shuffle([...EMOJIS]);
+  currentEmojis = shuffled.slice(0, n);
+  replacementEmoji = shuffled[n];
+  changedIdx = Math.floor(Math.random() * n);
+
+  // Render face-up with original emojis
+  layoutBoard();
+  renderCards(currentEmojis, false);
+  state = 'revealing';
+  statusEl.textContent = 'זכור את הקלפים...';
+
+  await wait(REVEAL_MS);
+  if (mySignal.aborted) return;
+
+  // Flip to back
+  state = 'flipping';
+  playFlip();
+  flipAll(true);
+  statusEl.textContent = '...';
+  await wait(FLIP_MS + 150);
+  if (mySignal.aborted) return;
+
+  // Swap the chosen emoji while face-down
+  updateFront(changedIdx, replacementEmoji);
+  await wait(FACEDOWN_MS - FLIP_MS - 150);
+  if (mySignal.aborted) return;
+
+  // Flip back to front
+  playFlip();
+  flipAll(false);
+  await wait(FLIP_MS);
+  if (mySignal.aborted) return;
+
+  // Guessing state
+  state = 'guessing';
+  statusEl.textContent = 'איזה קלף השתנה?';
+}
+
+function onCardClick(idx) {
+  if (state !== 'guessing') return;
+  getAudio();
+  if (cards[idx].el.classList.contains('empty')) return;
+  state = 'result';
+
+  if (idx === changedIdx) {
+    cards[idx].el.classList.add('correct');
+    playSuccess();
+    successCount++;
+    updateInfo();
+    if (successCount >= SUCCESSES_TO_ADVANCE) {
+      setTimeout(advanceLevel, RESULT_MS);
+    } else {
+      statusEl.textContent = 'נכון! ממשיכים...';
+      setTimeout(() => {
+        cards[idx].el.classList.remove('correct');
+        startRound();
+      }, RESULT_MS);
+    }
+  } else {
+    cards[idx].el.classList.add('wrong');
+    cards[changedIdx].el.classList.add('correct');
+    playError();
+    statusEl.textContent = 'טעית, מנסים שוב';
+    setTimeout(() => {
+      cards[idx].el.classList.remove('wrong');
+      cards[changedIdx].el.classList.remove('correct');
+      startRound();
+    }, RESULT_MS + 400);
+  }
+}
+
+function advanceLevel() {
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (isLast) {
+    modalEmoji.textContent = '🏆';
+    modalTitle.textContent = 'סיימת את כל הרמות!';
+    modalText.textContent = `עברת בהצלחה את כל 10 הרמות, עד 12 קלפים`;
+    modalBtn.textContent = 'התחל מחדש';
+    modalBtn.dataset.action = 'restart';
+    playLevelUp();
+    overlay.classList.add('show');
+    state = 'done';
+  } else {
+    modalEmoji.textContent = '⭐';
+    modalTitle.textContent = `רמה חדשה!`;
+    modalText.textContent = `עולים ל-${LEVELS[levelIdx + 1].cards} קלפים`;
+    modalBtn.textContent = 'המשך';
+    modalBtn.dataset.action = 'next';
+    playLevelUp();
+    overlay.classList.add('show');
+    state = 'levelup';
+  }
+}
+
+function updateInfo() {
+  numCardsEl.textContent = LEVELS[levelIdx].cards;
+  progressEl.textContent = `${successCount}/${SUCCESSES_TO_ADVANCE}`;
+  btnPrev.classList.toggle('hidden', levelIdx === 0);
+}
+
+modalBtn.addEventListener('click', () => {
+  const action = modalBtn.dataset.action;
+  overlay.classList.remove('show');
+  if (action === 'next') {
+    levelIdx = Math.min(levelIdx + 1, LEVELS.length - 1);
+    successCount = 0;
+  } else {
+    levelIdx = 0;
+    successCount = 0;
+  }
+  startRound();
+});
+
+btnReset.addEventListener('click', () => {
+  getAudio();
+  abortSignal.aborted = true;
+  overlay.classList.remove('show');
+  levelIdx = 0;
+  successCount = 0;
+  startRound();
+});
+
+btnPrev.addEventListener('click', () => {
+  getAudio();
+  if (levelIdx === 0) return;
+  abortSignal.aborted = true;
+  overlay.classList.remove('show');
+  levelIdx--;
+  successCount = 0;
+  startRound();
+});
+
+window.addEventListener('resize', () => {
+  layoutBoard();
+});
+
+startRound();
+
+function confirmEndGame() {
+  const overlay = document.createElement('div');
+  overlay.className = 'end-overlay';
+  overlay.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  overlay.querySelector('.yes').addEventListener('click', () => { overlay.remove(); endGame(); });
+  overlay.querySelector('.no').addEventListener('click', () => overlay.remove());
+  document.body.appendChild(overlay);
+}
+function endGame() {
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+document.getElementById('btn-end').addEventListener('click', confirmEndGame);
+</script>
+</body>
+</html>

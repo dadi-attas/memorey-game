@@ -1,0 +1,672 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>הסוד המטושטש</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔎</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff; user-select: none; touch-action: manipulation;
+  }
+  #app { height: 100vh; width: 100vw; display: flex; flex-direction: column; padding: 12px; gap: 8px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 0 0 auto; height: 56px; }
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff; padding: 11px 20px;
+    font-size: 17px; font-weight: 700;
+    border-radius: 12px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.94); }
+  .info {
+    flex: 1 1 auto; display: flex; justify-content: center; align-items: center;
+    gap: 28px; font-size: 20px; font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .info span b { color: #ffd86b; font-size: 26px; margin-inline-start: 6px; }
+
+  #status {
+    text-align: center;
+    font-size: 22px; font-weight: 700;
+    flex: 0 0 auto;
+    min-height: 30px;
+    color: #ffd86b;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+  }
+
+  #image-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 6px;
+  }
+  #image-box {
+    background: radial-gradient(ellipse at center, #fffdf7 0%, #f4e9cf 75%, #e8d9a8 100%);
+    border-radius: 26px;
+    box-shadow: inset 0 4px 18px rgba(0,0,0,0.22), 0 10px 28px rgba(0,0,0,0.4);
+    border: 3px solid rgba(255,255,255,0.5);
+    padding: 16px;
+    width: min(80%, 560px);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    transition: box-shadow 0.3s;
+    position: relative;
+  }
+  #image-box.revealed {
+    box-shadow: inset 0 0 30px rgba(86,195,77,0.3), 0 0 40px rgba(86,195,77,0.5);
+  }
+  #zoom-view {
+    font-size: var(--emoji-size, 300px);
+    line-height: 1;
+    transform: scale(var(--zoom, 3));
+    transform-origin: center;
+    transition: transform 0.55s ease;
+    user-select: none;
+  }
+  #zoom-view.snap {
+    transition: none;  /* instant zoom reset between rounds (no flash of new answer) */
+  }
+  #image-box.revealed #zoom-view {
+    transform: scale(1);
+    animation: revealPulse 0.9s ease 0.45s;
+  }
+  @keyframes revealPulse {
+    0%   { transform: scale(1) rotate(0); }
+    30%  { transform: scale(1.15) rotate(-3deg); }
+    60%  { transform: scale(1.08) rotate(3deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+
+  #choices {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 18px;
+    justify-content: center;
+    align-items: center;
+    padding: 8px;
+    min-height: 140px;
+  }
+  .choice {
+    width: var(--choice-size, 140px);
+    height: var(--choice-size, 140px);
+    background: #fff;
+    border: 4px solid rgba(255,255,255,0.65);
+    border-radius: 22px;
+    font-size: calc(var(--choice-size, 140px) * 0.62);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+    transition: transform 0.1s, box-shadow 0.15s, background 0.2s, border-color 0.15s, opacity 0.35s;
+    line-height: 1;
+  }
+  .choice:hover { transform: scale(1.05); box-shadow: 0 10px 24px rgba(0,0,0,0.5); }
+  .choice:active { transform: scale(0.96); }
+  .choice.correct {
+    background: #a8e6a1;
+    border-color: #3fa83f;
+    animation: pulseGreen 0.8s ease;
+  }
+  .choice.wrong {
+    background: #ffb3b3;
+    border-color: #e55b5b;
+    animation: shake 0.45s ease;
+  }
+  .choice.fading-out {
+    opacity: 0;
+    transform: scale(0.6) rotate(10deg);
+  }
+  .choice.fading-in {
+    animation: fadeIn 0.4s ease;
+  }
+  .choice.locked { pointer-events: none; }
+  @keyframes fadeIn {
+    0%   { opacity: 0; transform: scale(0.6) rotate(-10deg); }
+    60%  { opacity: 1; transform: scale(1.1) rotate(2deg); }
+    100% { opacity: 1; transform: scale(1) rotate(0); }
+  }
+  @keyframes pulseGreen {
+    0%, 100% { transform: scale(1); box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
+    50%      { transform: scale(1.1);  box-shadow: 0 0 35px rgba(86,195,77,0.95); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-8px); }
+    40% { transform: translateX(8px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+
+  #overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  #overlay.show { display: flex; animation: fadeInOverlay 0.3s ease; }
+  @keyframes fadeInOverlay { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 30px 44px; border-radius: 22px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    animation: pop 0.4s ease;
+  }
+  @keyframes pop {
+    0%   { transform: scale(0.5); opacity: 0; }
+    60%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  .modal .emoji { font-size: 64px; margin-bottom: 10px; }
+  .modal h2 { font-size: 30px; margin-bottom: 10px; }
+  .modal p { font-size: 18px; margin-bottom: 20px; opacity: 0.95; }
+  .modal .btn { background: #fff; color: #333; font-size: 18px; padding: 12px 28px; }
+  .modal .btn:hover { background: #ffd86b; }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal p { font-size: 15px; margin-bottom: 14px; opacity: 0.9; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס</button>
+    <div class="info">
+      <span>רמה: <b id="level-num">1</b></span>
+      <span><span id="progress-label">נכונים:</span> <b id="progress-num">0/3</b></span>
+    </div>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="status">מה בתמונה המפוקסלת?</div>
+  <div id="image-wrap">
+    <div id="image-box">
+      <div id="zoom-view"></div>
+    </div>
+  </div>
+  <div id="choices"></div>
+</div>
+
+<div id="overlay">
+  <div class="modal">
+    <div class="emoji" id="modal-emoji">🌟</div>
+    <h2 id="modal-title">רמה חדשה!</h2>
+    <p id="modal-text"></p>
+    <button id="modal-btn" class="btn">המשך</button>
+  </div>
+</div>
+
+<script>
+// visiblePct = fraction of emoji visible through the zoom window (smaller = more zoomed in, less context)
+// pctStep    = extra visible fraction per wrong answer (zoom-out, reveals more of the object)
+// maxPct     = cap so the view never becomes the full object until correct click
+const LEVELS = [
+  { visiblePct: 0.22, pctStep: 0.05, maxPct: 0.55, sameCategory: false },
+  { visiblePct: 0.18, pctStep: 0.04, maxPct: 0.48, sameCategory: true  },
+  { visiblePct: 0.14, pctStep: 0.035,maxPct: 0.42, sameCategory: true  },
+  { visiblePct: 0.11, pctStep: 0.03, maxPct: 0.36, sameCategory: true  },
+  { visiblePct: 0.08, pctStep: 0.025,maxPct: 0.30, sameCategory: true  },
+];
+
+// Pools grouped by category (used both for correct answer and same-category distractors)
+const CATEGORIES = [
+  ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🦁', '🐯', '🐷', '🐮', '🦒', '🐗', '🐨', '🐘', '🐵', '🐺'],
+  ['🐟', '🐠', '🦈', '🐡', '🐙', '🦀', '🦐', '🦞', '🐬', '🐳', '🐋', '🦭'],
+  ['🐔', '🐧', '🦆', '🦅', '🦉', '🦜', '🕊️', '🦢', '🦩', '🦃'],
+  ['🦋', '🐝', '🐞', '🐛', '🦗', '🐜', '🕷️', '🐌'],
+  ['🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍑', '🥝', '🥭', '🍍'],
+  ['🥕', '🌽', '🥔', '🥒', '🍆', '🫑', '🥦', '🍅', '🧄', '🧅'],
+  ['🚗', '🚕', '🚙', '🚌', '🚒', '🚑', '🚓', '🚚', '🚜', '🏍️', '🚲', '🛵', '🚂'],
+  ['🔨', '🔧', '🪛', '🪓', '🪚', '⛏️', '🧰'],
+  ['🎸', '🎹', '🎺', '🎻', '🥁', '🎷', '🪕', '🪗', '🎤'],
+  ['🌹', '🌻', '🌷', '🌼', '🌺', '💐', '🏵️', '🪷'],
+  ['⚽', '🏀', '🏈', '⚾', '🎾', '🏐', '🏉', '🥎'],
+  ['☀️', '⛅', '☁️', '🌧️', '❄️', '⛄', '🌈', '⛈️'],
+  ['🍕', '🍔', '🌭', '🍟', '🥪', '🌮', '🌯', '🥙', '🍖', '🍗'],
+  ['🏠', '🏢', '🏫', '🏥', '🏰', '🏯', '🗼', '🗽', '⛪'],
+];
+
+const SUCCESSES_TO_ADVANCE = 3;
+const MISSES_TO_DESCEND = 5;
+const INACTIVITY_MS = 12000;
+const AUTO_END_MS = 10000;
+const REVEAL_DELAY_MS = 1500;
+const SWAP_PROBABILITY = 0.4;  // chance to also replace a non-clicked button after a wrong click
+
+const zoomViewEl = document.getElementById('zoom-view');
+const imageBoxEl = document.getElementById('image-box');
+const imageWrapEl = document.getElementById('image-wrap');
+const choicesEl = document.getElementById('choices');
+const statusEl = document.getElementById('status');
+const levelNumEl = document.getElementById('level-num');
+const progressLabelEl = document.getElementById('progress-label');
+const progressNumEl = document.getElementById('progress-num');
+const btnReset = document.getElementById('btn-reset');
+const btnEnd = document.getElementById('btn-end');
+const overlay = document.getElementById('overlay');
+const modalEmoji = document.getElementById('modal-emoji');
+const modalTitle = document.getElementById('modal-title');
+const modalText = document.getElementById('modal-text');
+const modalBtn = document.getElementById('modal-btn');
+
+let levelIdx = 0;
+let successStreak = 0;
+let missStreak = 0;
+let lastLevelScore = 0;
+let state = 'playing';
+let correctEmoji = null;
+let currentCategory = null;
+let currentButtons = [];       // array of 3 emojis currently displayed
+let distractorPool = [];       // pool of potential distractors for this round
+let wrongAttempts = 0;
+let currentVisiblePct = 0;  // current fraction of emoji visible (zoom window)
+let descendQueued = false;
+let inactivityTimer = null;
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// --- Audio ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.15, startOffset = 0, freqEnd = null }) {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  const t0 = ac.currentTime + startOffset;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function playSuccess() {
+  tone({ freq: 523.25, type: 'sine', duration: 0.13, volume: 0.16 });
+  tone({ freq: 659.25, type: 'sine', duration: 0.14, volume: 0.16, startOffset: 0.1 });
+}
+function playError() { tone({ freq: 260, freqEnd: 150, type: 'sawtooth', duration: 0.3, volume: 0.13 }); }
+function playLevelUp() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.18, volume: 0.18, startOffset: i * 0.1 });
+  });
+}
+
+// --- Zoom control: show only part of the emoji by scaling it larger than its
+// container. Container has overflow:hidden so only the center window is visible.
+// visiblePct = fraction of the emoji visible through the window (smaller = more zoomed in).
+function applyZoom(visiblePct, instant) {
+  const zoom = 1 / visiblePct;
+  if (instant) {
+    zoomViewEl.classList.add('snap');
+    zoomViewEl.style.setProperty('--zoom', zoom);
+    void zoomViewEl.offsetHeight;
+    zoomViewEl.classList.remove('snap');
+  } else {
+    zoomViewEl.style.setProperty('--zoom', zoom);
+  }
+}
+
+// --- Layout ---
+function layoutGame() {
+  const boxW = imageBoxEl.clientWidth;
+  const boxH = imageBoxEl.clientHeight;
+  const emojiSize = Math.max(120, Math.floor(Math.min(boxW * 0.9, boxH * 0.9)));
+  zoomViewEl.style.setProperty('--emoji-size', emojiSize + 'px');
+
+  const w = window.innerWidth;
+  const n = 3;
+  const gapTotal = (n - 1) * 18 + 40;
+  const availH = choicesEl.clientHeight - 16;
+  const choiceSize = Math.max(100, Math.min(Math.floor((w - gapTotal) / n), availH, 170));
+  document.querySelectorAll('.choice').forEach(el => {
+    el.style.setProperty('--choice-size', choiceSize + 'px');
+  });
+}
+
+// --- Round setup ---
+function startRound() {
+  const lvl = LEVELS[levelIdx];
+  currentCategory = pick(CATEGORIES);
+  correctEmoji = pick(currentCategory);
+
+  // Build distractor pool of 6-8 items (same category or cross-category)
+  if (lvl.sameCategory) {
+    distractorPool = currentCategory.filter(e => e !== correctEmoji);
+    shuffle(distractorPool);
+    distractorPool = distractorPool.slice(0, 8);
+  } else {
+    distractorPool = [];
+    let safety = 0;
+    while (distractorPool.length < 8 && safety++ < 80) {
+      const c = pick(CATEGORIES);
+      if (c === currentCategory) continue;
+      const e = pick(c);
+      if (!distractorPool.includes(e) && e !== correctEmoji) {
+        distractorPool.push(e);
+      }
+    }
+  }
+
+  // Initial two distractors
+  const initial = distractorPool.slice(0, 2);
+  currentButtons = shuffle([correctEmoji, ...initial]);
+  // Remove the chosen initial distractors from the pool (they'll be re-added if they cycle out)
+  distractorPool = distractorPool.slice(2);
+
+  // Reset visual state
+  wrongAttempts = 0;
+  currentVisiblePct = lvl.visiblePct;
+  imageBoxEl.classList.remove('revealed');
+  // Set emoji text AND zoom in the same tick with no transition —
+  // prevents any flash of the new answer at full size.
+  zoomViewEl.textContent = correctEmoji;
+  applyZoom(currentVisiblePct, true);
+
+  renderButtons();
+  state = 'playing';
+  statusEl.textContent = 'מה בתמונה המטושטשת?';
+  updateInfo();
+  resetInactivity();
+  requestAnimationFrame(layoutGame);
+}
+
+function renderButtons() {
+  choicesEl.innerHTML = '';
+  currentButtons.forEach((emoji, idx) => {
+    const btn = document.createElement('div');
+    btn.className = 'choice';
+    btn.textContent = emoji;
+    btn.dataset.idx = idx;
+    btn.addEventListener('click', () => onChoice(idx, btn));
+    choicesEl.appendChild(btn);
+  });
+}
+
+function pickFreshDistractor() {
+  // Return a distractor not currently on screen and not the correct answer
+  const onScreen = new Set(currentButtons);
+  onScreen.add(correctEmoji);
+  // First try the pool
+  const available = distractorPool.filter(e => !onScreen.has(e));
+  if (available.length > 0) {
+    const picked = pick(available);
+    distractorPool = distractorPool.filter(e => e !== picked);
+    return picked;
+  }
+  // Pool exhausted — pick from broader set matching the category rule
+  const lvl = LEVELS[levelIdx];
+  const fallbackPool = lvl.sameCategory
+    ? currentCategory.filter(e => !onScreen.has(e))
+    : CATEGORIES.flat().filter(e => !onScreen.has(e) && !currentCategory.includes(e));
+  if (fallbackPool.length > 0) return pick(fallbackPool);
+  // Very last resort
+  return pick(CATEGORIES.flat().filter(e => e !== correctEmoji));
+}
+
+function onChoice(idx, btnEl) {
+  if (state !== 'playing') return;
+  getAudio();
+  resetInactivity();
+
+  const chosen = currentButtons[idx];
+
+  if (chosen === correctEmoji) {
+    onCorrect(btnEl);
+  } else {
+    onWrong(idx, btnEl);
+  }
+}
+
+function onCorrect(btnEl) {
+  state = 'result';
+  playSuccess();
+  // Lock all buttons
+  document.querySelectorAll('.choice').forEach(el => el.classList.add('locked'));
+  btnEl.classList.add('correct');
+
+  // Reveal — smooth zoom-out transition to the full emoji
+  imageBoxEl.classList.add('revealed');
+  statusEl.textContent = 'נכון!';
+
+  // Update streaks (only count "perfect" rounds for success streak)
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (wrongAttempts === 0) {
+    successStreak++;
+    missStreak = 0;
+  }
+  if (isLast) lastLevelScore++;
+  updateInfo();
+
+  setTimeout(() => {
+    if (!isLast && successStreak >= SUCCESSES_TO_ADVANCE) {
+      showLevelUp();
+    } else if (descendQueued && levelIdx > 0) {
+      levelIdx--;
+      successStreak = 0;
+      missStreak = 0;
+      descendQueued = false;
+      startRound();
+    } else {
+      startRound();
+    }
+  }, REVEAL_DELAY_MS);
+}
+
+function onWrong(idx, btnEl) {
+  playError();
+  btnEl.classList.add('wrong');
+
+  // Only count the FIRST wrong of a round toward the miss streak
+  if (wrongAttempts === 0) {
+    missStreak++;
+    successStreak = 0;
+    if (missStreak >= MISSES_TO_DESCEND && levelIdx > 0) {
+      descendQueued = true;
+      missStreak = 0;
+    }
+  }
+  wrongAttempts++;
+
+  // Zoom out a bit — reveal more of the emoji.
+  const lvl = LEVELS[levelIdx];
+  currentVisiblePct = Math.min(lvl.maxPct, currentVisiblePct + lvl.pctStep);
+  applyZoom(currentVisiblePct, false);
+
+  // Build the next set of 3 buttons: correct answer + 2 fresh distractors,
+  // ALL shuffled to new positions (the correct answer moves each round too).
+  // Return all old distractors to the pool.
+  for (const e of currentButtons) {
+    if (e !== correctEmoji) distractorPool.push(e);
+  }
+  shuffle(distractorPool);
+  const newDistractors = [];
+  for (const e of distractorPool) {
+    if (newDistractors.length === 2) break;
+    if (e === correctEmoji || newDistractors.includes(e)) continue;
+    newDistractors.push(e);
+  }
+  while (newDistractors.length < 2) {
+    const extras = lvl.sameCategory
+      ? currentCategory.filter(e => e !== correctEmoji && !newDistractors.includes(e))
+      : CATEGORIES.flat().filter(e => e !== correctEmoji && !currentCategory.includes(e) && !newDistractors.includes(e));
+    if (extras.length === 0) break;
+    newDistractors.push(pick(extras));
+  }
+  distractorPool = distractorPool.filter(e => !newDistractors.includes(e));
+  const nextButtons = shuffle([correctEmoji, ...newDistractors]);
+
+  // Fade out ALL three buttons, then render the new shuffled set with fade-in
+  setTimeout(() => {
+    const allBtns = Array.from(document.querySelectorAll('.choice'));
+    allBtns.forEach(b => {
+      b.classList.remove('wrong');
+      b.classList.add('fading-out');
+    });
+    setTimeout(() => {
+      currentButtons = nextButtons;
+      renderButtons();
+      document.querySelectorAll('.choice').forEach(b => {
+        b.classList.add('fading-in');
+        setTimeout(() => b.classList.remove('fading-in'), 450);
+      });
+    }, 380);
+  }, 430);
+}
+
+function showLevelUp() {
+  modalEmoji.textContent = '🌟';
+  modalTitle.textContent = 'רמה חדשה!';
+  modalText.textContent = `עולים לרמה ${levelIdx + 2}`;
+  modalBtn.textContent = 'המשך';
+  modalBtn.onclick = () => {
+    overlay.classList.remove('show');
+    levelIdx++;
+    successStreak = 0;
+    missStreak = 0;
+    startRound();
+  };
+  overlay.classList.add('show');
+  playLevelUp();
+}
+
+function updateInfo() {
+  levelNumEl.textContent = levelIdx + 1;
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (isLast) {
+    progressLabelEl.textContent = 'ניקוד:';
+    progressNumEl.textContent = lastLevelScore;
+  } else {
+    progressLabelEl.textContent = 'נכונים:';
+    progressNumEl.textContent = `${successStreak}/${SUCCESSES_TO_ADVANCE}`;
+  }
+}
+
+// --- Inactivity dialog ---
+function resetInactivity() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(showInactivityDialog, INACTIVITY_MS);
+}
+function showInactivityDialog() {
+  if (state !== 'playing') return;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>12 שניות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  let to;
+  const cleanup = (choice) => {
+    if (to) { clearTimeout(to); to = null; }
+    if (o.parentNode) o.remove();
+    if (choice === 'yes') { state = 'playing'; resetInactivity(); }
+    else endGame();
+  };
+  o.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  o.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+  document.body.appendChild(o);
+}
+
+// --- Reset / End ---
+btnReset.addEventListener('click', () => {
+  getAudio();
+  overlay.classList.remove('show');
+  levelIdx = 0;
+  successStreak = 0;
+  missStreak = 0;
+  lastLevelScore = 0;
+  descendQueued = false;
+  startRound();
+});
+
+function confirmEndGame() {
+  clearTimeout(inactivityTimer);
+  const prev = state;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  o.querySelector('.yes').addEventListener('click', () => { o.remove(); endGame(); });
+  o.querySelector('.no').addEventListener('click', () => {
+    o.remove();
+    state = prev;
+    resetInactivity();
+  });
+  document.body.appendChild(o);
+}
+function endGame() {
+  clearTimeout(inactivityTimer);
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+btnEnd.addEventListener('click', confirmEndGame);
+
+window.addEventListener('resize', layoutGame);
+
+startRound();
+</script>
+</body>
+</html>

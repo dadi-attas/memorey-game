@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>השלם את המילה</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>📝</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff; user-select: none; touch-action: manipulation;
+  }
+  #app { height: 100vh; width: 100vw; display: flex; flex-direction: column; padding: 12px; gap: 8px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 0 0 auto; height: 56px; }
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff; padding: 11px 20px;
+    font-size: 17px; font-weight: 700;
+    border-radius: 12px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.94); }
+  .info {
+    flex: 1 1 auto; display: flex; justify-content: center; align-items: center;
+    gap: 28px; font-size: 20px; font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .info span b { color: #ffd86b; font-size: 26px; margin-inline-start: 6px; }
+
+  #status {
+    text-align: center;
+    font-size: 20px; font-weight: 700;
+    flex: 0 0 auto;
+    min-height: 28px;
+    color: #ffd86b;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+  }
+
+  #card-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 6px;
+    perspective: 1800px;
+  }
+  #card {
+    width: min(92%, 760px);
+    height: 100%;
+    max-height: 480px;
+    position: relative;
+  }
+  .card-inner {
+    position: relative;
+    width: 100%; height: 100%;
+    transition: transform 0.85s cubic-bezier(0.45, 0.05, 0.25, 1.05);
+    transform-style: preserve-3d;
+  }
+  #card.flipped .card-inner { transform: rotateY(180deg); }
+
+  .card-face {
+    position: absolute;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    backface-visibility: hidden;
+    -webkit-backface-visibility: hidden;
+    border-radius: 26px;
+    border: 3px solid rgba(255,255,255,0.5);
+    box-shadow: inset 0 4px 18px rgba(0,0,0,0.22), 0 10px 28px rgba(0,0,0,0.4);
+    padding: 20px;
+    gap: 12px;
+  }
+  .card-front {
+    background: radial-gradient(ellipse at center, #fffdf7 0%, #f4e9cf 75%, #e8d9a8 100%);
+  }
+  .card-back {
+    background: radial-gradient(ellipse at center, #d8fad5 0%, #a8e6a1 70%, #6fc268 100%);
+    transform: rotateY(180deg);
+  }
+
+  #word-display {
+    font-size: clamp(56px, 9vw, 120px);
+    font-weight: 900;
+    color: #222;
+    direction: rtl;
+    letter-spacing: 0.08em;
+    font-family: "David", "Frank Ruehl", "Tahoma", serif;
+    line-height: 1.2;
+    display: flex;
+    gap: 0.08em;
+    /* In RTL with normal flex row, items flow right→left naturally.
+       First DOM letter appears on the right (Hebrew-correct). */
+  }
+  .blank-letter {
+    display: inline-block;
+    min-width: 1em;
+    padding: 0 0.2em;
+    background: rgba(0,0,0,0.18);
+    border: 4px dashed #c97a00;
+    color: #c97a00;
+    border-radius: 14px;
+    font-weight: 900;
+    animation: missPulse 1.4s ease-in-out infinite;
+    line-height: 1.1;
+    text-align: center;
+  }
+  .blank-letter.filled {
+    background: #a8e6a1;
+    border-style: solid;
+    border-color: #3fa83f;
+    color: #14532d;
+    animation: fillIn 0.5s ease;
+  }
+  @keyframes missPulse {
+    0%, 100% { box-shadow: 0 0 0 rgba(201,122,0,0); }
+    50%      { box-shadow: 0 0 22px rgba(201,122,0,0.65); }
+  }
+  @keyframes fillIn {
+    0%   { transform: scale(0.6); opacity: 0.3; }
+    60%  { transform: scale(1.2); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+
+  #emoji-display {
+    font-size: clamp(110px, 16vh, 200px);
+    line-height: 1;
+    filter: drop-shadow(0 6px 14px rgba(0,0,0,0.25));
+  }
+  #back-word {
+    font-size: clamp(42px, 6vw, 80px);
+    font-weight: 900;
+    color: #14532d;
+    direction: rtl;
+    font-family: "David", "Frank Ruehl", "Tahoma", serif;
+    letter-spacing: 0.05em;
+  }
+
+  #choices {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 22px;
+    justify-content: center;
+    align-items: center;
+    padding: 10px;
+    min-height: 130px;
+  }
+  .letter-choice {
+    width: var(--choice-size, 130px);
+    height: var(--choice-size, 130px);
+    background: #fff;
+    color: #222;
+    border: 4px solid rgba(255,255,255,0.7);
+    border-radius: 22px;
+    font-size: calc(var(--choice-size, 130px) * 0.6);
+    font-weight: 900;
+    cursor: pointer;
+    font-family: "David", "Frank Ruehl", "Tahoma", serif;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+    transition: transform 0.1s, box-shadow 0.15s, background 0.2s, border-color 0.15s;
+    line-height: 1;
+  }
+  .letter-choice:hover { transform: scale(1.05); box-shadow: 0 10px 24px rgba(0,0,0,0.5); }
+  .letter-choice:active { transform: scale(0.96); }
+  .letter-choice.correct {
+    background: #a8e6a1;
+    border-color: #3fa83f;
+    color: #14532d;
+    animation: pulseGreen 0.8s ease;
+  }
+  .letter-choice.wrong {
+    background: #ffb3b3;
+    border-color: #e55b5b;
+    color: #7a1a1a;
+    animation: shake 0.5s ease;
+  }
+  .letter-choice.locked { pointer-events: none; }
+  @keyframes pulseGreen {
+    0%, 100% { transform: scale(1); box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
+    50%      { transform: scale(1.1);  box-shadow: 0 0 35px rgba(86,195,77,0.95); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-9px); }
+    40% { transform: translateX(9px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+
+  #overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  #overlay.show { display: flex; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 30px 44px; border-radius: 22px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    animation: pop 0.4s ease;
+  }
+  @keyframes pop {
+    0%   { transform: scale(0.5); opacity: 0; }
+    60%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  .modal .emoji { font-size: 64px; margin-bottom: 10px; }
+  .modal h2 { font-size: 30px; margin-bottom: 10px; }
+  .modal p { font-size: 18px; margin-bottom: 20px; opacity: 0.95; }
+  .modal .btn { background: #fff; color: #333; font-size: 18px; padding: 12px 28px; }
+  .modal .btn:hover { background: #ffd86b; }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal p { font-size: 15px; margin-bottom: 14px; opacity: 0.9; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס</button>
+    <div class="info">
+      <span>רמה: <b id="level-num">1</b></span>
+      <span><span id="progress-label">נכונים:</span> <b id="progress-num">0/3</b></span>
+    </div>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="status">איזו אות חסרה?</div>
+  <div id="card-wrap">
+    <div id="card">
+      <div class="card-inner">
+        <div class="card-face card-front">
+          <div id="word-display"></div>
+        </div>
+        <div class="card-face card-back">
+          <div id="emoji-display"></div>
+          <div id="back-word"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div id="choices"></div>
+</div>
+
+<div id="overlay">
+  <div class="modal">
+    <div class="emoji" id="modal-emoji">🌟</div>
+    <h2 id="modal-title">רמה חדשה!</h2>
+    <p id="modal-text"></p>
+    <button id="modal-btn" class="btn">המשך</button>
+  </div>
+</div>
+
+<script>
+const LEVELS = [
+  { minLen: 3, maxLen: 3, hidePos: 'end',    successesToAdvance: 3 },
+  { minLen: 4, maxLen: 4, hidePos: 'end',    successesToAdvance: 3 },
+  { minLen: 4, maxLen: 5, hidePos: 'any',    successesToAdvance: 3 },
+  { minLen: 5, maxLen: 6, hidePos: 'middle', successesToAdvance: 3 },
+  { minLen: 5, maxLen: 7, hidePos: 'any',    successesToAdvance: Infinity },
+];
+
+// Word pool: each entry is { word, emoji, alts }.
+// alts = map from hidden-position index → list of letters that would ALSO form
+// a valid Hebrew word at that position (so they must NEVER be distractors).
+// Tagged conservatively — we over-block to avoid ambiguous rounds.
+const WORDS = [
+  // 3-letter words (hidden position = 2, the last letter)
+  { word: 'שמש',  emoji: '☀️',  alts: { 2: ['א','ד','ה','ח','ט','ע','ר','ת','ו','י','נ'] } }, // שמא, שמד, שמה, שמח, שמט, שמע, שמר, שמת, שמו, שמי, שמן
+  { word: 'כלב',  emoji: '🐶',  alts: { 2: ['ה','י'] } },              // כלה, כלי
+  { word: 'ירח',  emoji: '🌙',  alts: { 2: ['ד','ה','ק'] } },          // ירד, ירה, ירק
+  { word: 'פיל',  emoji: '🐘',  alts: { 2: ['ה','ס','ד','ת'] } },      // פיה, פיס, פיד, פית
+  { word: 'קוף',  emoji: '🐵',  alts: { 2: ['ם','ץ'] } },              // קום, קוץ
+  { word: 'דבש',  emoji: '🍯',  alts: { 2: ['ר','ק','ה','ב'] } },      // דבר, דבק, דבה, דב
+  { word: 'בית',  emoji: '🏠',  alts: { 2: ['ש','ד'] } },              // ביש, ביד
+  { word: 'שלג',  emoji: '❄️',  alts: { 2: ['ב','ה','ח','ש','ט','ד','ן'] } }, // שלב, שלה, שלח, שלש, שלט, שלד, שלן
+  { word: 'סוס',  emoji: '🐴',  alts: { 2: ['ג','ד','ך','ר'] } },      // סוג, סוד, סוך, סור
+  { word: 'לחם',  emoji: '🍞',  alts: { 2: ['ן','ץ'] } },              // לחן, לחץ
+  { word: 'חלב',  emoji: '🥛',  alts: { 2: ['ה','ל','ק','ש','ד','ת'] } }, // חלה, חלל, חלק, חלש, חלד, חלת
+  { word: 'מים',  emoji: '💧',  alts: { 2: ['ן','ץ'] } },              // מין, מיץ
+  { word: 'תות',  emoji: '🍓',  alts: { 2: ['ר','ם','ך'] } },          // תור, תום, תוך
+  { word: 'בצל',  emoji: '🧅',  alts: { 2: ['ה','ק','ר'] } },          // בצה, בצק, בצר
+  { word: 'גזר',  emoji: '🥕',  alts: { 2: ['ל','ע','ם'] } },          // גזל, גזע, גזם
+  { word: 'ספר',  emoji: '📖',  alts: { 2: ['ג','ד','ק','ן'] } },      // ספג, ספד, ספק, ספן
+  { word: 'דוב',  emoji: '🐻',  alts: { 2: ['ד','ח','ק','ש','ג'] } },  // דוד, דוח, דוק, דוש, דוג
+  { word: 'פרה',  emoji: '🐄',  alts: { 2: ['ד','ט','ח','ס','ק','ע','ץ','ש'] } }, // פרד, פרט, פרח, פרס, פרק, פרע, פרץ, פרש
+  { word: 'גשם',  emoji: '🌧️',  alts: { 2: ['ן'] } },                  // גשן (Goshen)
+
+  // 4-letter words (hidden position = 3, the last letter)
+  { word: 'תפוח',  emoji: '🍎',  alts: { 3: ['ר','ז'] } },             // תפור, תפוז
+  { word: 'בננה',  emoji: '🍌',  alts: { 3: [] } },
+  { word: 'חתול',  emoji: '🐱',  alts: { 3: ['ם','ך'] } },             // חתום, חתוך
+  { word: 'כוכב',  emoji: '⭐',  alts: { 3: [] } },
+  { word: 'פיצה',  emoji: '🍕',  alts: { 3: [] } },
+  { word: 'עוגה',  emoji: '🎂',  alts: { 3: ['ב','ן'] } },             // עוגב, עוגן
+  { word: 'רכבת',  emoji: '🚂',  alts: { 3: ['ה'] } },                 // רכבה
+  { word: 'פרפר',  emoji: '🦋',  alts: { 3: [] } },
+  { word: 'אריה',  emoji: '🦁',  alts: { 3: ['ג'] } },                 // אריג
+  { word: 'כריש',  emoji: '🦈',  alts: { 3: ['ת','ך'] } },             // כרית, כריך
+  { word: 'מפתח',  emoji: '🔑',  alts: { 3: ['ה','ל','ן'] } },         // מפתה, מפתל, מפתן
+  { word: 'שעון',  emoji: '⏰',  alts: { 3: [] } },
+  { word: 'תפוז',  emoji: '🍊',  alts: { 3: ['ח','ר'] } },             // תפוח, תפור
+  { word: 'עכבר',  emoji: '🐭',  alts: { 3: ['ה'] } },                 // עכברה (fem)
+  { word: 'ארנב',  emoji: '🐰',  alts: { 3: ['ה'] } },                 // ארנבה (fem)
+  { word: 'שועל',  emoji: '🦊',  alts: { 3: ['ה'] } },                 // שועלה (fem)
+  { word: 'פנדה',  emoji: '🐼',  alts: { 3: [] } },
+  { word: 'חזיר',  emoji: '🐷',  alts: { 3: ['ת','ה'] } },             // חזית, חזירה (fem)
+
+  // 5-letter words
+  { word: 'גלידה', emoji: '🍦',  alts: {} },
+  { word: 'עוגיה', emoji: '🍪',  alts: {} },
+  { word: 'דבורה', emoji: '🐝',  alts: {} },
+  { word: 'ציפור', emoji: '🐦',  alts: {} },
+  { word: 'לימון', emoji: '🍋',  alts: {} },
+  { word: 'אבטיח', emoji: '🍉',  alts: {} },
+  { word: 'גבינה', emoji: '🧀',  alts: {} },
+
+  // 6-letter words
+  { word: 'מכונית', emoji: '🚗', alts: {} },
+  { word: 'עגבניה', emoji: '🍅', alts: {} },
+  { word: 'עיפרון', emoji: '✏️', alts: {} },
+  { word: 'דולפין', emoji: '🐬', alts: {} },
+];
+
+// Hebrew alphabet (regular + final forms)
+const HEB_LETTERS = ['א','ב','ג','ד','ה','ו','ז','ח','ט','י','כ','ל','מ','נ','ס','ע','פ','צ','ק','ר','ש','ת'];
+const HEB_FINALS  = ['ך','ם','ן','ף','ץ'];
+
+const SUCCESSES_TO_ADVANCE = 3;
+const MISSES_TO_DESCEND = 5;
+const INACTIVITY_MS = 12000;
+const AUTO_END_MS = 10000;
+const FLIP_DELAY_MS = 600;
+const ROUND_END_DELAY_MS = 2500;
+
+const wordDisplayEl = document.getElementById('word-display');
+const emojiDisplayEl = document.getElementById('emoji-display');
+const backWordEl = document.getElementById('back-word');
+const cardEl = document.getElementById('card');
+const choicesEl = document.getElementById('choices');
+const statusEl = document.getElementById('status');
+const levelNumEl = document.getElementById('level-num');
+const progressLabelEl = document.getElementById('progress-label');
+const progressNumEl = document.getElementById('progress-num');
+const btnReset = document.getElementById('btn-reset');
+const btnEnd = document.getElementById('btn-end');
+const overlay = document.getElementById('overlay');
+const modalEmoji = document.getElementById('modal-emoji');
+const modalTitle = document.getElementById('modal-title');
+const modalText = document.getElementById('modal-text');
+const modalBtn = document.getElementById('modal-btn');
+
+let levelIdx = 0;
+let successCount = 0;
+let missStreak = 0;
+let lastLevelScore = 0;
+let state = 'playing';
+let currentWord = null;
+let hiddenPosition = 0;
+let correctLetter = '';
+let wrongAttempts = 0;
+let descendQueued = false;
+let recentWords = [];
+let inactivityTimer = null;
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// --- Audio ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.15, startOffset = 0, freqEnd = null }) {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  const t0 = ac.currentTime + startOffset;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function playSuccess() {
+  tone({ freq: 523.25, type: 'sine', duration: 0.13, volume: 0.16 });
+  tone({ freq: 659.25, type: 'sine', duration: 0.14, volume: 0.16, startOffset: 0.1 });
+}
+function playError() { tone({ freq: 260, freqEnd: 150, type: 'sawtooth', duration: 0.3, volume: 0.13 }); }
+function playLevelUp() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.18, volume: 0.18, startOffset: i * 0.1 });
+  });
+}
+
+// --- Distractor selection ---
+// Excludes: the correct letter, letters already in the word, and `alts` letters
+// which would complete a DIFFERENT valid Hebrew word at the same position.
+function pickDistractors(wordObj, hiddenPos, correct) {
+  const isFinal = HEB_FINALS.includes(correct);
+  const wordLetters = new Set(wordObj.word.split(''));
+  const basePool = isFinal ? HEB_FINALS : HEB_LETTERS;
+  const forbidden = new Set((wordObj.alts && wordObj.alts[hiddenPos]) || []);
+
+  let candidates = basePool.filter(l =>
+    l !== correct &&
+    !wordLetters.has(l) &&
+    !forbidden.has(l)
+  );
+  // Progressive fallback if pool shrank too much
+  if (candidates.length < 2) {
+    candidates = basePool.filter(l => l !== correct && !forbidden.has(l));
+  }
+  if (candidates.length < 2) {
+    candidates = basePool.filter(l => l !== correct);
+  }
+  shuffle(candidates);
+  return candidates.slice(0, 2);
+}
+
+// --- Layout ---
+function layoutChoices() {
+  const w = window.innerWidth;
+  const gapTotal = 2 * 22 + 40;
+  const choiceSize = Math.max(90, Math.min(Math.floor((w - gapTotal) / 3), 150));
+  document.querySelectorAll('.letter-choice').forEach(el => {
+    el.style.setProperty('--choice-size', choiceSize + 'px');
+  });
+}
+
+// --- Round ---
+function pickWord() {
+  const lvl = LEVELS[levelIdx];
+  const candidates = WORDS.filter(w =>
+    w.word.length >= lvl.minLen &&
+    w.word.length <= lvl.maxLen &&
+    !recentWords.includes(w.word)
+  );
+  let pool = candidates;
+  if (pool.length === 0) {
+    recentWords = [];
+    pool = WORDS.filter(w => w.word.length >= lvl.minLen && w.word.length <= lvl.maxLen);
+  }
+  const chosen = pick(pool);
+  recentWords.push(chosen.word);
+  if (recentWords.length > 8) recentWords.shift();
+  return chosen;
+}
+
+function chooseHiddenPosition(word, hidePos) {
+  const len = word.length;
+  if (hidePos === 'end') return len - 1;
+  if (hidePos === 'middle') {
+    // Avoid the first letter; prefer middle (but not last) positions
+    if (len <= 3) return 1;
+    return 1 + Math.floor(Math.random() * (len - 2));
+  }
+  // 'any' — anywhere except the very first letter (too hard without any anchor)
+  if (len <= 2) return len - 1;
+  return 1 + Math.floor(Math.random() * (len - 1));
+}
+
+function startRound() {
+  currentWord = pickWord();
+  const lvl = LEVELS[levelIdx];
+  hiddenPosition = chooseHiddenPosition(currentWord.word, lvl.hidePos);
+  correctLetter = currentWord.word[hiddenPosition];
+
+  // Letter choices: correct + 2 distractors, shuffled
+  const distractors = pickDistractors(currentWord, hiddenPosition, correctLetter);
+  const letters = shuffle([correctLetter, ...distractors]);
+
+  // Render FRONT (while card is currently flipped, front is facing away — invisible to user)
+  renderWord();
+  renderChoices(letters);
+
+  // Start flipping back to the front. The old back content stays visible during
+  // the first half of the flip (which is fine — user already knew the old answer).
+  cardEl.classList.remove('flipped');
+
+  // Update BACK content only after the flip completes, when the back is facing
+  // away. This prevents the new round's answer from flashing before the challenge.
+  setTimeout(() => {
+    emojiDisplayEl.textContent = currentWord.emoji;
+    backWordEl.textContent = currentWord.word;
+  }, 900);
+
+  wrongAttempts = 0;
+  state = 'playing';
+  statusEl.textContent = 'איזו אות חסרה?';
+  updateInfo();
+  resetInactivity();
+  requestAnimationFrame(layoutChoices);
+}
+
+function renderWord() {
+  wordDisplayEl.innerHTML = '';
+  const letters = currentWord.word.split('');
+  letters.forEach((letter, i) => {
+    const span = document.createElement('span');
+    if (i === hiddenPosition) {
+      span.className = 'blank-letter';
+      span.textContent = '?';
+      span.id = 'blank';
+    } else {
+      span.textContent = letter;
+    }
+    wordDisplayEl.appendChild(span);
+  });
+}
+
+function renderChoices(letters) {
+  choicesEl.innerHTML = '';
+  letters.forEach(letter => {
+    const btn = document.createElement('button');
+    btn.className = 'letter-choice';
+    btn.textContent = letter;
+    btn.addEventListener('click', () => onChoice(letter, btn));
+    choicesEl.appendChild(btn);
+  });
+}
+
+function onChoice(letter, btnEl) {
+  if (state !== 'playing') return;
+  getAudio();
+  resetInactivity();
+
+  if (letter === correctLetter) {
+    onCorrect(btnEl);
+  } else {
+    onWrong(btnEl);
+  }
+}
+
+function onCorrect(btnEl) {
+  state = 'result';
+  document.querySelectorAll('.letter-choice').forEach(el => el.classList.add('locked'));
+  btnEl.classList.add('correct');
+
+  // Fill the blank
+  const blank = document.getElementById('blank');
+  if (blank) {
+    blank.textContent = correctLetter;
+    blank.classList.add('filled');
+  }
+  playSuccess();
+  statusEl.textContent = 'נכון!';
+
+  // Streak logic: only "clean" rounds count toward advancing
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (wrongAttempts === 0) {
+    successCount++;
+    missStreak = 0;
+  }
+  if (isLast) lastLevelScore++;
+  updateInfo();
+
+  // Safety: make sure back content matches the current word (in case the user
+  // was faster than the 900ms back-update timer in startRound).
+  emojiDisplayEl.textContent = currentWord.emoji;
+  backWordEl.textContent = currentWord.word;
+
+  // Flip the card to reveal emoji + word
+  setTimeout(() => { cardEl.classList.add('flipped'); }, FLIP_DELAY_MS);
+
+  // Next round
+  setTimeout(() => {
+    if (!isLast && successCount >= SUCCESSES_TO_ADVANCE) {
+      showLevelUp();
+    } else if (descendQueued && levelIdx > 0) {
+      levelIdx--;
+      successCount = 0;
+      missStreak = 0;
+      descendQueued = false;
+      startRound();
+    } else {
+      startRound();
+    }
+  }, ROUND_END_DELAY_MS);
+}
+
+function onWrong(btnEl) {
+  btnEl.classList.add('wrong');
+  playError();
+  if (wrongAttempts === 0) {
+    missStreak++;
+    successCount = 0;
+    if (missStreak >= MISSES_TO_DESCEND && levelIdx > 0) {
+      descendQueued = true;
+      missStreak = 0;
+    }
+  }
+  wrongAttempts++;
+  setTimeout(() => { btnEl.classList.remove('wrong'); }, 550);
+}
+
+function showLevelUp() {
+  modalEmoji.textContent = '🌟';
+  modalTitle.textContent = 'רמה חדשה!';
+  modalText.textContent = `עולים לרמה ${levelIdx + 2}`;
+  modalBtn.textContent = 'המשך';
+  modalBtn.onclick = () => {
+    overlay.classList.remove('show');
+    levelIdx++;
+    successCount = 0;
+    missStreak = 0;
+    startRound();
+  };
+  overlay.classList.add('show');
+  playLevelUp();
+}
+
+function updateInfo() {
+  levelNumEl.textContent = levelIdx + 1;
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (isLast) {
+    progressLabelEl.textContent = 'ניקוד:';
+    progressNumEl.textContent = lastLevelScore;
+  } else {
+    progressLabelEl.textContent = 'נכונים:';
+    progressNumEl.textContent = `${successCount}/${SUCCESSES_TO_ADVANCE}`;
+  }
+}
+
+// --- Inactivity ---
+function resetInactivity() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(showInactivityDialog, INACTIVITY_MS);
+}
+function showInactivityDialog() {
+  if (state !== 'playing') return;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>12 שניות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  let to;
+  const cleanup = (choice) => {
+    if (to) { clearTimeout(to); to = null; }
+    if (o.parentNode) o.remove();
+    if (choice === 'yes') { state = 'playing'; resetInactivity(); }
+    else endGame();
+  };
+  o.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  o.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+  document.body.appendChild(o);
+}
+
+// --- Reset / End ---
+btnReset.addEventListener('click', () => {
+  getAudio();
+  overlay.classList.remove('show');
+  levelIdx = 0;
+  successCount = 0;
+  missStreak = 0;
+  lastLevelScore = 0;
+  recentWords = [];
+  descendQueued = false;
+  startRound();
+});
+
+function confirmEndGame() {
+  clearTimeout(inactivityTimer);
+  const prev = state;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  o.querySelector('.yes').addEventListener('click', () => { o.remove(); endGame(); });
+  o.querySelector('.no').addEventListener('click', () => {
+    o.remove();
+    state = prev;
+    resetInactivity();
+  });
+  document.body.appendChild(o);
+}
+function endGame() {
+  clearTimeout(inactivityTimer);
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+btnEnd.addEventListener('click', confirmEndGame);
+
+window.addEventListener('resize', layoutChoices);
+
+startRound();
+</script>
+</body>
+</html>

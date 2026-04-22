@@ -1,0 +1,1007 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>דפי צביעה</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff; user-select: none; touch-action: none;
+  }
+  #app { height: 100vh; width: 100vw; display: flex; flex-direction: column; padding: 12px; gap: 10px; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex: 0 0 auto; height: 56px;
+  }
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff; padding: 10px 20px;
+    font-size: 17px; font-weight: 700;
+    border-radius: 12px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.94); }
+  .info {
+    flex: 1 1 auto; display: flex; justify-content: center; align-items: center;
+    gap: 24px; font-size: 18px; font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .info span b { color: #ffd86b; font-size: 22px; margin-inline-start: 6px; }
+
+  #main {
+    flex: 1 1 auto; display: flex; gap: 14px;
+    min-height: 0; min-width: 0;
+    justify-content: center; align-items: center;
+  }
+  #canvas-wrap {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    background: #fffdf7; border-radius: 14px;
+    padding: 14px; min-height: 0; min-width: 0;
+    box-shadow: inset 0 2px 10px rgba(0,0,0,0.15);
+    /* width/height set by JS layoutCanvas() to keep image square and maximized */
+  }
+  #coloring-svg {
+    width: 100%; height: 100%;
+    display: block;
+    overflow: visible;
+  }
+  #coloring-svg.celebrate { animation: celebrate 1.6s ease; }
+  @keyframes celebrate {
+    0% { transform: scale(1) rotate(0); }
+    25% { transform: scale(1.05) rotate(-2deg); }
+    50% { transform: scale(1.08) rotate(2deg); }
+    75% { transform: scale(1.05) rotate(-1deg); }
+    100% { transform: scale(1) rotate(0); }
+  }
+
+  .part { cursor: pointer; }
+  .part[data-colored="true"] { cursor: default; }
+  .part.shake { animation: partShake 0.45s ease; transform-box: fill-box; transform-origin: center; }
+  @keyframes partShake {
+    0%, 100% { transform: translate(0, 0); }
+    20% { transform: translate(-6px, 0); }
+    40% { transform: translate(6px, 0); }
+    60% { transform: translate(-4px, 0); }
+    80% { transform: translate(4px, 0); }
+  }
+  .num-label { pointer-events: none; user-select: none; font-family: "Segoe UI", sans-serif; }
+
+  #palette {
+    flex: 0 0 auto;
+    display: grid;
+    grid-template-columns: 72px 72px;
+    gap: 10px;
+    justify-content: center; align-content: center; justify-items: center;
+    padding: 14px 12px;
+    background: rgba(255,255,255,0.09);
+    border-radius: 14px;
+    border: 2px solid rgba(255,255,255,0.12);
+    align-self: center;
+    overflow: visible;
+  }
+  .color-swatch {
+    width: 72px; height: 72px;
+    border-radius: 50%;
+    border: 4px solid rgba(255, 255, 255, 0.55);
+    box-shadow: 0 5px 14px rgba(0, 0, 0, 0.38);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 30px; font-weight: 900;
+    color: #fff; cursor: grab;
+    touch-action: none;
+    flex: 0 0 auto;
+    transition: transform 0.1s, box-shadow 0.15s, border-color 0.15s;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.6);
+    position: relative;
+  }
+  .color-swatch:active { cursor: grabbing; transform: scale(0.94); }
+  .color-swatch.selected {
+    transform: scale(1.12);
+    border-color: #ffd86b;
+    box-shadow: 0 0 22px rgba(255, 216, 107, 0.85), 0 5px 14px rgba(0,0,0,0.4);
+  }
+  .color-swatch.dark-text { color: #2c3e50; text-shadow: 0 1px 1px rgba(255,255,255,0.5); }
+
+  #drag-ghost {
+    position: fixed; top: 0; left: 0; z-index: 9999;
+    width: 72px; height: 72px; border-radius: 50%;
+    display: none;
+    align-items: center; justify-content: center;
+    font-size: 28px; font-weight: 900;
+    color: #fff;
+    border: 4px solid rgba(255,255,255,0.85);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.5);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+  }
+  #drag-ghost.show { display: flex; }
+  #drag-ghost.dark-text { color: #2c3e50; text-shadow: 0 1px 1px rgba(255,255,255,0.5); }
+
+  #overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  #overlay.show { display: flex; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 30px 44px; border-radius: 22px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    animation: pop 0.5s ease;
+  }
+  @keyframes pop {
+    0% { transform: scale(0.5); opacity: 0; }
+    60% { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  .modal .emoji { font-size: 70px; margin-bottom: 10px; }
+  .modal h2 { font-size: 36px; margin-bottom: 10px; }
+  .modal p { font-size: 18px; margin-bottom: 20px; opacity: 0.95; }
+  .modal .btn { background: #fff; color: #333; font-size: 18px; padding: 12px 28px; }
+  .modal .btn:hover { background: #ffd86b; }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס משחק</button>
+    <div class="info">
+      <span>ציור: <b id="pic-num">1</b></span>
+      <span>רמה: <b id="level-num">1</b></span>
+      <span>נצבעו: <b id="progress">0/0</b></span>
+    </div>
+    <button id="btn-swap" class="btn">החלף ציור</button>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="main">
+    <div id="canvas-wrap">
+      <svg id="coloring-svg" viewBox="0 0 400 400" preserveAspectRatio="xMidYMid meet"></svg>
+    </div>
+    <div id="palette"></div>
+  </div>
+</div>
+
+<div id="drag-ghost"></div>
+
+<div id="overlay">
+  <div class="modal">
+    <div class="emoji" id="modal-emoji">⭐</div>
+    <h2 id="modal-title">כל הכבוד!</h2>
+    <p id="modal-text"></p>
+    <button id="modal-btn" class="btn">לציור הבא</button>
+  </div>
+</div>
+
+<script>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+
+// --- Color palette (global by colorNum) ---
+const COLOR_BOOK = {
+  1: { hex: '#ff6fa3', dark: false },  // ורוד
+  2: { hex: '#ffd63a', dark: true  },  // צהוב
+  3: { hex: '#4caf50', dark: false },  // ירוק
+  4: { hex: '#3498db', dark: false },  // כחול
+  5: { hex: '#e74c3c', dark: false },  // אדום
+  6: { hex: '#ff9f40', dark: false },  // כתום
+  7: { hex: '#9b59b6', dark: false },  // סגול
+  8: { hex: '#8b5a2b', dark: false },  // חום
+  9: { hex: '#2c3e50', dark: false },  // שחור
+  10:{ hex: '#ecf0f1', dark: true  },  // לבן
+  11:{ hex: '#a5d8f3', dark: true  },  // תכלת
+  12:{ hex: '#f8c8dc', dark: true  },  // ורוד בהיר
+};
+
+// --- Picture definitions ---
+function buildFlowerParts() {
+  const cx = 200, cy = 210;
+  const parts = [];
+  for (let i = 0; i < 5; i++) {
+    const a = (-90 + i * 72) * Math.PI / 180;
+    const px = cx + 62 * Math.cos(a);
+    const py = cy + 62 * Math.sin(a);
+    parts.push({ type: 'circle', cx: px, cy: py, r: 42, colorNum: 1,
+      labelX: px, labelY: py, labelSize: 24 });
+  }
+  parts.push({ type: 'circle', cx, cy, r: 30, colorNum: 2,
+    labelX: cx, labelY: cy, labelSize: 24 });
+  parts.push({ type: 'path',
+    d: 'M 193 240 Q 200 305 195 380 L 205 380 Q 200 305 207 240 Z',
+    colorNum: 3, labelX: 200, labelY: 330, labelSize: 18 });
+  parts.push({ type: 'ellipse', cx: 158, cy: 305, rx: 34, ry: 14, rotate: -30,
+    colorNum: 3, labelX: 158, labelY: 305, labelSize: 16 });
+  parts.push({ type: 'ellipse', cx: 242, cy: 340, rx: 34, ry: 14, rotate: 30,
+    colorNum: 3, labelX: 242, labelY: 340, labelSize: 16 });
+  return parts;
+}
+
+function buildHouseParts() {
+  return [
+    { type: 'circle', cx: 340, cy: 80, r: 36, colorNum: 6,
+      labelX: 340, labelY: 80, labelSize: 22 },
+    { type: 'rect', x: 0, y: 340, width: 400, height: 60, colorNum: 3,
+      labelX: 50, labelY: 370, labelSize: 22 },
+    { type: 'rect', x: 100, y: 210, width: 200, height: 140, colorNum: 2,
+      labelX: 200, labelY: 245, labelSize: 28 },
+    { type: 'polygon', points: '80,215 200,120 320,215', colorNum: 5,
+      labelX: 200, labelY: 180, labelSize: 26 },
+    { type: 'rect', x: 180, y: 280, width: 40, height: 70, colorNum: 8,
+      labelX: 200, labelY: 320, labelSize: 16 },
+    { type: 'rect', x: 120, y: 230, width: 40, height: 40, colorNum: 4,
+      labelX: 140, labelY: 250, labelSize: 16 },
+    { type: 'rect', x: 240, y: 230, width: 40, height: 40, colorNum: 4,
+      labelX: 260, labelY: 250, labelSize: 16 },
+  ];
+}
+
+function buildButterflyParts() {
+  const cx = 200, cy = 200;
+  return [
+    { type: 'ellipse', cx: cx - 75, cy: cy - 40, rx: 75, ry: 55, colorNum: 4,
+      labelX: cx - 110, labelY: cy - 30, labelSize: 22 },
+    { type: 'ellipse', cx: cx + 75, cy: cy - 40, rx: 75, ry: 55, colorNum: 4,
+      labelX: cx + 110, labelY: cy - 30, labelSize: 22 },
+    { type: 'ellipse', cx: cx - 60, cy: cy + 65, rx: 58, ry: 48, colorNum: 7,
+      labelX: cx - 85, labelY: cy + 85, labelSize: 18 },
+    { type: 'ellipse', cx: cx + 60, cy: cy + 65, rx: 58, ry: 48, colorNum: 7,
+      labelX: cx + 85, labelY: cy + 85, labelSize: 18 },
+    { type: 'circle', cx: cx - 95, cy: cy - 55, r: 12, colorNum: 2,
+      labelX: cx - 95, labelY: cy - 55, labelSize: 13 },
+    { type: 'circle', cx: cx + 95, cy: cy - 55, r: 12, colorNum: 2,
+      labelX: cx + 95, labelY: cy - 55, labelSize: 13 },
+    { type: 'circle', cx: cx - 55, cy: cy - 15, r: 10, colorNum: 5,
+      labelX: cx - 55, labelY: cy - 15, labelSize: 12 },
+    { type: 'circle', cx: cx + 55, cy: cy - 15, r: 10, colorNum: 5,
+      labelX: cx + 55, labelY: cy - 15, labelSize: 12 },
+    { type: 'circle', cx: cx - 65, cy: cy + 65, r: 11, colorNum: 10,
+      labelX: cx - 65, labelY: cy + 65, labelSize: 13 },
+    { type: 'circle', cx: cx + 65, cy: cy + 65, r: 11, colorNum: 10,
+      labelX: cx + 65, labelY: cy + 65, labelSize: 13 },
+    { type: 'ellipse', cx: cx, cy: cy + 10, rx: 13, ry: 80, colorNum: 9,
+      labelX: cx, labelY: cy + 10, labelSize: 16 },
+    { type: 'circle', cx: cx, cy: cy - 80, r: 16, colorNum: 9,
+      labelX: cx, labelY: cy - 80, labelSize: 14 },
+    { type: 'path',
+      d: `M ${cx - 4} ${cy - 92} Q ${cx - 20} ${cy - 120} ${cx - 36} ${cy - 120} Q ${cx - 22} ${cy - 112} ${cx - 2} ${cy - 90} Z`,
+      colorNum: 9, labelX: cx - 22, labelY: cy - 108, labelSize: 11 },
+    { type: 'path',
+      d: `M ${cx + 4} ${cy - 92} Q ${cx + 20} ${cy - 120} ${cx + 36} ${cy - 120} Q ${cx + 22} ${cy - 112} ${cx + 2} ${cy - 90} Z`,
+      colorNum: 9, labelX: cx + 22, labelY: cy - 108, labelSize: 11 },
+  ];
+}
+
+function buildMandalaParts() {
+  const cx = 200, cy = 200;
+  const parts = [];
+  // Background big circle — label in a clear gap between outer circles and petals
+  parts.push({ type: 'circle', cx, cy, r: 188, colorNum: 11,
+    labelX: cx + 172, labelY: cy + 34, labelSize: 14 });
+  // 8 outer circles
+  for (let i = 0; i < 8; i++) {
+    const a = (i * 45) * Math.PI / 180;
+    parts.push({
+      type: 'circle',
+      cx: cx + 155 * Math.cos(a),
+      cy: cy + 155 * Math.sin(a),
+      r: 22, colorNum: 5,
+      labelX: cx + 155 * Math.cos(a),
+      labelY: cy + 155 * Math.sin(a),
+      labelSize: 15,
+    });
+  }
+  // 8 outer petals
+  for (let i = 0; i < 8; i++) {
+    const deg = 22.5 + i * 45;
+    const a = deg * Math.PI / 180;
+    const ex = cx + 115 * Math.cos(a);
+    const ey = cy + 115 * Math.sin(a);
+    parts.push({
+      type: 'ellipse', cx: ex, cy: ey, rx: 28, ry: 14, rotate: deg,
+      colorNum: 7, labelX: ex, labelY: ey, labelSize: 13,
+    });
+  }
+  // 8 inner petals
+  for (let i = 0; i < 8; i++) {
+    const deg = i * 45;
+    const a = deg * Math.PI / 180;
+    const ex = cx + 60 * Math.cos(a);
+    const ey = cy + 60 * Math.sin(a);
+    parts.push({
+      type: 'ellipse', cx: ex, cy: ey, rx: 22, ry: 11, rotate: deg,
+      colorNum: 1, labelX: ex, labelY: ey, labelSize: 12,
+    });
+  }
+  // 8 middle dots
+  for (let i = 0; i < 8; i++) {
+    const a = (22.5 + i * 45) * Math.PI / 180;
+    parts.push({
+      type: 'circle',
+      cx: cx + 60 * Math.cos(a),
+      cy: cy + 60 * Math.sin(a),
+      r: 8, colorNum: 3,
+      labelX: cx + 60 * Math.cos(a),
+      labelY: cy + 60 * Math.sin(a),
+      labelSize: 10,
+    });
+  }
+  // Center
+  parts.push({ type: 'circle', cx, cy, r: 25, colorNum: 2,
+    labelX: cx, labelY: cy, labelSize: 18 });
+  return parts;
+}
+
+// --- Level 1: Sun & Cloud ---
+function buildSunCloudParts() {
+  const parts = [];
+  parts.push({ type: 'rect', x: 0, y: 340, width: 400, height: 60, colorNum: 3,
+    labelX: 50, labelY: 370, labelSize: 22 });
+  const sx = 140, sy = 150;
+  parts.push({ type: 'circle', cx: sx, cy: sy, r: 42, colorNum: 2,
+    labelX: sx, labelY: sy, labelSize: 26 });
+  for (let i = 0; i < 6; i++) {
+    const a = (i * 60) * Math.PI / 180;
+    const rx = sx + 75 * Math.cos(a);
+    const ry = sy + 75 * Math.sin(a);
+    parts.push({
+      type: 'ellipse', cx: rx, cy: ry, rx: 18, ry: 7, rotate: i * 60,
+      colorNum: 6, labelX: rx, labelY: ry, labelSize: 12,
+    });
+  }
+  parts.push({
+    type: 'path',
+    d: 'M 240 215 C 215 205 220 180 245 180 C 252 158 290 158 300 178 C 320 170 345 185 340 207 C 355 204 365 225 345 232 L 240 232 Z',
+    colorNum: 10, labelX: 295, labelY: 205, labelSize: 20,
+  });
+  return parts;
+}
+
+// --- Level 1: Snowman ---
+function buildSnowmanParts() {
+  return [
+    { type: 'circle', cx: 200, cy: 320, r: 55, colorNum: 10,
+      labelX: 200, labelY: 345, labelSize: 24 },
+    { type: 'circle', cx: 200, cy: 240, r: 42, colorNum: 10,
+      labelX: 240, labelY: 255, labelSize: 18 },
+    { type: 'circle', cx: 200, cy: 170, r: 35, colorNum: 10,
+      labelX: 172, labelY: 185, labelSize: 16 },
+    { type: 'rect', x: 167, y: 130, width: 66, height: 10, colorNum: 9,
+      labelX: 200, labelY: 135, labelSize: 9 },
+    { type: 'rect', x: 178, y: 90, width: 44, height: 42, colorNum: 9,
+      labelX: 200, labelY: 112, labelSize: 18 },
+    { type: 'rect', x: 160, y: 195, width: 80, height: 14, colorNum: 5,
+      labelX: 200, labelY: 202, labelSize: 12 },
+    { type: 'circle', cx: 188, cy: 164, r: 5, colorNum: 9,
+      labelX: 188, labelY: 150, labelSize: 10 },
+    { type: 'circle', cx: 212, cy: 164, r: 5, colorNum: 9,
+      labelX: 212, labelY: 150, labelSize: 10 },
+    { type: 'polygon', points: '200,177 224,182 200,187', colorNum: 6,
+      labelX: 214, labelY: 182, labelSize: 11 },
+  ];
+}
+
+// --- Level 2: Fish ---
+function buildFishParts() {
+  const cx = 220, cy = 210;
+  return [
+    { type: 'circle', cx: 340, cy: 80, r: 14, colorNum: 4,
+      labelX: 340, labelY: 80, labelSize: 15 },
+    { type: 'circle', cx: 370, cy: 130, r: 9, colorNum: 4,
+      labelX: 370, labelY: 130, labelSize: 10 },
+    { type: 'polygon', points: '130,210 70,165 70,255', colorNum: 2,
+      labelX: 95, labelY: 210, labelSize: 18 },
+    { type: 'polygon', points: '195,165 245,145 265,175', colorNum: 4,
+      labelX: 230, labelY: 160, labelSize: 12 },
+    { type: 'polygon', points: '220,260 250,285 280,260', colorNum: 4,
+      labelX: 250, labelY: 270, labelSize: 12 },
+    { type: 'ellipse', cx: cx, cy: cy, rx: 85, ry: 50, colorNum: 6,
+      labelX: 170, labelY: 235, labelSize: 22 },
+    { type: 'ellipse', cx: 215, cy: 205, rx: 9, ry: 40, colorNum: 5,
+      labelX: 215, labelY: 205, labelSize: 13 },
+    { type: 'ellipse', cx: 250, cy: 205, rx: 8, ry: 36, colorNum: 5,
+      labelX: 250, labelY: 205, labelSize: 12 },
+    { type: 'circle', cx: 285, cy: 195, r: 12, colorNum: 10,
+      labelX: 285, labelY: 195, labelSize: 13 },
+    { type: 'circle', cx: 288, cy: 195, r: 6, colorNum: 9,
+      labelX: 288, labelY: 195, labelSize: 8 },
+  ];
+}
+
+// --- Level 2: Boat ---
+function buildBoatParts() {
+  return [
+    { type: 'circle', cx: 330, cy: 75, r: 28, colorNum: 2,
+      labelX: 330, labelY: 75, labelSize: 20 },
+    { type: 'path',
+      d: 'M 50 100 C 32 90 40 62 62 62 C 68 48 98 48 106 65 C 122 58 142 72 138 92 C 150 88 160 108 142 118 L 50 118 Z',
+      colorNum: 10, labelX: 95, labelY: 90, labelSize: 16 },
+    { type: 'path',
+      d: 'M 0 335 Q 40 322 80 335 T 160 335 T 240 335 T 320 335 T 400 335 L 400 400 L 0 400 Z',
+      colorNum: 4, labelX: 60, labelY: 372, labelSize: 22 },
+    { type: 'rect', x: 196, y: 135, width: 8, height: 150, colorNum: 8,
+      labelX: 213, labelY: 160, labelSize: 11 },
+    { type: 'polygon', points: '205,145 205,270 278,270', colorNum: 10,
+      labelX: 235, labelY: 250, labelSize: 18 },
+    { type: 'polygon', points: '204,135 232,143 204,151', colorNum: 5,
+      labelX: 218, labelY: 143, labelSize: 10 },
+    { type: 'polygon', points: '130,285 280,285 250,325 160,325', colorNum: 8,
+      labelX: 205, labelY: 308, labelSize: 22 },
+  ];
+}
+
+// --- Level 3: Rabbit ---
+function buildRabbitParts() {
+  return [
+    { type: 'rect', x: 0, y: 340, width: 400, height: 60, colorNum: 3,
+      labelX: 50, labelY: 370, labelSize: 22 },
+    { type: 'ellipse', cx: 178, cy: 100, rx: 14, ry: 50, colorNum: 10,
+      labelX: 155, labelY: 75, labelSize: 13 },
+    { type: 'ellipse', cx: 222, cy: 100, rx: 14, ry: 50, colorNum: 10,
+      labelX: 245, labelY: 75, labelSize: 13 },
+    { type: 'ellipse', cx: 178, cy: 110, rx: 7, ry: 38, colorNum: 1,
+      labelX: 178, labelY: 125, labelSize: 10 },
+    { type: 'ellipse', cx: 222, cy: 110, rx: 7, ry: 38, colorNum: 1,
+      labelX: 222, labelY: 125, labelSize: 10 },
+    { type: 'ellipse', cx: 200, cy: 270, rx: 62, ry: 55, colorNum: 10,
+      labelX: 200, labelY: 295, labelSize: 22 },
+    { type: 'circle', cx: 200, cy: 185, r: 45, colorNum: 10,
+      labelX: 168, labelY: 170, labelSize: 16 },
+    { type: 'circle', cx: 184, cy: 178, r: 5, colorNum: 9,
+      labelX: 184, labelY: 178, labelSize: 8 },
+    { type: 'circle', cx: 216, cy: 178, r: 5, colorNum: 9,
+      labelX: 216, labelY: 178, labelSize: 8 },
+    { type: 'ellipse', cx: 200, cy: 200, rx: 6, ry: 4, colorNum: 1,
+      labelX: 200, labelY: 200, labelSize: 8 },
+    { type: 'ellipse', cx: 162, cy: 320, rx: 20, ry: 13, colorNum: 10,
+      labelX: 162, labelY: 320, labelSize: 12 },
+    { type: 'ellipse', cx: 238, cy: 320, rx: 20, ry: 13, colorNum: 10,
+      labelX: 238, labelY: 320, labelSize: 12 },
+  ];
+}
+
+// --- Level 3: Dinosaur ---
+function buildDinosaurParts() {
+  return [
+    { type: 'rect', x: 0, y: 325, width: 400, height: 75, colorNum: 8,
+      labelX: 50, labelY: 365, labelSize: 22 },
+    { type: 'circle', cx: 355, cy: 65, r: 26, colorNum: 2,
+      labelX: 355, labelY: 65, labelSize: 18 },
+    { type: 'path',
+      d: 'M 125 222 Q 70 220 45 180 L 30 205 Q 60 255 120 245 Z',
+      colorNum: 3, labelX: 70, labelY: 220, labelSize: 14 },
+    { type: 'ellipse', cx: 200, cy: 230, rx: 90, ry: 45, colorNum: 3,
+      labelX: 200, labelY: 250, labelSize: 22 },
+    { type: 'circle', cx: 290, cy: 178, r: 36, colorNum: 3,
+      labelX: 290, labelY: 175, labelSize: 18 },
+    { type: 'rect', x: 250, y: 265, width: 18, height: 50, colorNum: 3,
+      labelX: 259, labelY: 295, labelSize: 11 },
+    { type: 'rect', x: 276, y: 265, width: 18, height: 50, colorNum: 3,
+      labelX: 285, labelY: 295, labelSize: 11 },
+    { type: 'rect', x: 130, y: 265, width: 18, height: 50, colorNum: 3,
+      labelX: 139, labelY: 295, labelSize: 11 },
+    { type: 'rect', x: 156, y: 265, width: 18, height: 50, colorNum: 3,
+      labelX: 165, labelY: 295, labelSize: 11 },
+    { type: 'polygon', points: '150,188 160,158 170,188', colorNum: 7,
+      labelX: 160, labelY: 180, labelSize: 10 },
+    { type: 'polygon', points: '180,185 190,152 200,185', colorNum: 7,
+      labelX: 190, labelY: 177, labelSize: 10 },
+    { type: 'polygon', points: '210,185 220,152 230,185', colorNum: 7,
+      labelX: 220, labelY: 177, labelSize: 10 },
+    { type: 'polygon', points: '240,188 250,160 260,188', colorNum: 7,
+      labelX: 250, labelY: 180, labelSize: 10 },
+    { type: 'circle', cx: 302, cy: 172, r: 5, colorNum: 9,
+      labelX: 302, labelY: 172, labelSize: 8 },
+  ];
+}
+
+// --- Level 4: Cityscape ---
+function buildCityParts() {
+  const parts = [];
+  parts.push({ type: 'rect', x: 0, y: 0, width: 400, height: 340, colorNum: 11,
+    labelX: 50, labelY: 50, labelSize: 24 });
+  parts.push({ type: 'circle', cx: 340, cy: 60, r: 25, colorNum: 2,
+    labelX: 340, labelY: 60, labelSize: 20 });
+  // Building 1
+  parts.push({ type: 'rect', x: 40, y: 150, width: 80, height: 190, colorNum: 5,
+    labelX: 80, labelY: 332, labelSize: 16 });
+  parts.push({ type: 'polygon', points: '30,150 80,108 130,150', colorNum: 9,
+    labelX: 80, labelY: 140, labelSize: 10 });
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 2; c++) {
+      parts.push({
+        type: 'rect', x: 52 + c * 30, y: 165 + r * 45, width: 18, height: 22,
+        colorNum: 2, labelX: 61 + c * 30, labelY: 176 + r * 45, labelSize: 11,
+      });
+    }
+  }
+  // Building 2
+  parts.push({ type: 'rect', x: 150, y: 200, width: 100, height: 140, colorNum: 6,
+    labelX: 160, labelY: 212, labelSize: 14 });
+  for (let r = 0; r < 2; r++) {
+    for (let c = 0; c < 2; c++) {
+      parts.push({
+        type: 'rect', x: 162 + c * 38, y: 215 + r * 40, width: 22, height: 24,
+        colorNum: 4, labelX: 173 + c * 38, labelY: 227 + r * 40, labelSize: 11,
+      });
+    }
+  }
+  parts.push({ type: 'rect', x: 188, y: 298, width: 24, height: 42, colorNum: 8,
+    labelX: 200, labelY: 319, labelSize: 11 });
+  // Building 3
+  parts.push({ type: 'rect', x: 280, y: 180, width: 80, height: 160, colorNum: 7,
+    labelX: 320, labelY: 332, labelSize: 16 });
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 2; c++) {
+      parts.push({
+        type: 'rect', x: 292 + c * 30, y: 195 + r * 42, width: 18, height: 22,
+        colorNum: 2, labelX: 301 + c * 30, labelY: 206 + r * 42, labelSize: 11,
+      });
+    }
+  }
+  parts.push({ type: 'rect', x: 0, y: 340, width: 400, height: 60, colorNum: 3,
+    labelX: 350, labelY: 372, labelSize: 22 });
+  return parts;
+}
+
+// --- Level 4: Mandala 2 (6-fold symmetry) ---
+function buildMandala2Parts() {
+  const cx = 200, cy = 200;
+  const parts = [];
+  // Background
+  parts.push({ type: 'circle', cx, cy, r: 185, colorNum: 11,
+    labelX: cx + 168, labelY: cy + 34, labelSize: 14 });
+  // 6 outer rays (triangles)
+  for (let i = 0; i < 6; i++) {
+    const a = (i * 60) * Math.PI / 180;
+    const aL = ((i * 60) - 10) * Math.PI / 180;
+    const aR = ((i * 60) + 10) * Math.PI / 180;
+    const p1x = cx + 128 * Math.cos(a);
+    const p1y = cy + 128 * Math.sin(a);
+    const p2x = cx + 178 * Math.cos(aL);
+    const p2y = cy + 178 * Math.sin(aL);
+    const p3x = cx + 178 * Math.cos(aR);
+    const p3y = cy + 178 * Math.sin(aR);
+    parts.push({
+      type: 'polygon', points: `${p1x},${p1y} ${p2x},${p2y} ${p3x},${p3y}`,
+      colorNum: 5,
+      labelX: cx + 155 * Math.cos(a), labelY: cy + 155 * Math.sin(a),
+      labelSize: 11,
+    });
+  }
+  // 6 outer circles (between rays)
+  for (let i = 0; i < 6; i++) {
+    const a = (30 + i * 60) * Math.PI / 180;
+    parts.push({
+      type: 'circle',
+      cx: cx + 140 * Math.cos(a), cy: cy + 140 * Math.sin(a),
+      r: 22, colorNum: 7,
+      labelX: cx + 140 * Math.cos(a), labelY: cy + 140 * Math.sin(a),
+      labelSize: 14,
+    });
+  }
+  // 6 outer ellipses
+  for (let i = 0; i < 6; i++) {
+    const deg = i * 60;
+    const a = deg * Math.PI / 180;
+    parts.push({
+      type: 'ellipse',
+      cx: cx + 82 * Math.cos(a), cy: cy + 82 * Math.sin(a),
+      rx: 22, ry: 12, rotate: deg,
+      colorNum: 2,
+      labelX: cx + 82 * Math.cos(a), labelY: cy + 82 * Math.sin(a),
+      labelSize: 11,
+    });
+  }
+  // 6 inner dots
+  for (let i = 0; i < 6; i++) {
+    const a = (30 + i * 60) * Math.PI / 180;
+    parts.push({
+      type: 'circle',
+      cx: cx + 55 * Math.cos(a), cy: cy + 55 * Math.sin(a),
+      r: 11, colorNum: 1,
+      labelX: cx + 55 * Math.cos(a), labelY: cy + 55 * Math.sin(a),
+      labelSize: 11,
+    });
+  }
+  // Center
+  parts.push({ type: 'circle', cx, cy, r: 22, colorNum: 3,
+    labelX: cx, labelY: cy, labelSize: 16 });
+  return parts;
+}
+
+const PICTURES = [
+  // Level 1 — 3-4 colors, simple
+  { name: 'פרח',       level: 1, viewBox: '0 0 400 400', colors: [1, 2, 3],              build: buildFlowerParts },
+  { name: 'שמש וענן',  level: 1, viewBox: '0 0 400 400', colors: [2, 3, 6, 10],          build: buildSunCloudParts },
+  { name: 'איש שלג',   level: 1, viewBox: '0 0 400 400', colors: [5, 6, 9, 10],          build: buildSnowmanParts },
+  // Level 2 — 5-6 colors
+  { name: 'בית',       level: 2, viewBox: '0 0 400 400', colors: [2, 3, 4, 5, 6, 8],     build: buildHouseParts },
+  { name: 'דג',        level: 2, viewBox: '0 0 400 400', colors: [2, 4, 5, 6, 9, 10],    build: buildFishParts },
+  { name: 'סירה',      level: 2, viewBox: '0 0 400 400', colors: [2, 4, 5, 8, 10],       build: buildBoatParts },
+  // Level 3 — more parts, 5-6 colors
+  { name: 'פרפר',      level: 3, viewBox: '0 0 400 400', colors: [2, 4, 5, 7, 9, 10],    build: buildButterflyParts },
+  { name: 'ארנבת',     level: 3, viewBox: '0 0 400 400', colors: [1, 3, 9, 10],          build: buildRabbitParts },
+  { name: 'דינוזאור',  level: 3, viewBox: '0 0 400 400', colors: [2, 3, 7, 8, 9],        build: buildDinosaurParts },
+  // Level 4 — most parts and colors
+  { name: 'מנדלה',     level: 4, viewBox: '0 0 400 400', colors: [1, 2, 3, 5, 7, 11],    build: buildMandalaParts },
+  { name: 'עיר',       level: 4, viewBox: '0 0 400 400', colors: [2, 3, 4, 5, 6, 7, 8, 9, 11], build: buildCityParts },
+  { name: 'מנדלה 2',   level: 4, viewBox: '0 0 400 400', colors: [1, 2, 3, 5, 7, 11],    build: buildMandala2Parts },
+];
+
+// --- State ---
+let pictureIdx = 0;
+let parts = [];
+let selectedColorNum = null;
+let totalParts = 0;
+let coloredCount = 0;
+
+// --- Audio ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.15, startOffset = 0, freqEnd = null }) {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  const t0 = ac.currentTime + startOffset;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function playClick() { tone({ freq: 700, type: 'triangle', duration: 0.06, volume: 0.1 }); }
+function playSuccess() {
+  tone({ freq: 523.25, type: 'sine', duration: 0.12, volume: 0.16 });
+  tone({ freq: 659.25, type: 'sine', duration: 0.14, volume: 0.16, startOffset: 0.09 });
+}
+function playError() { tone({ freq: 260, freqEnd: 150, type: 'sawtooth', duration: 0.28, volume: 0.12 }); }
+function playCelebrate() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.2, volume: 0.2, startOffset: i * 0.12 });
+  });
+}
+
+// --- Rendering ---
+const svgEl = document.getElementById('coloring-svg');
+const paletteEl = document.getElementById('palette');
+const mainEl = document.getElementById('main');
+const canvasWrap = document.getElementById('canvas-wrap');
+
+function layoutCanvas() {
+  if (!mainEl || !canvasWrap || !paletteEl) return;
+  const mainH = mainEl.clientHeight;
+  const mainW = mainEl.clientWidth;
+  const paletteW = paletteEl.offsetWidth;
+  const gap = 14;
+  const availW = mainW - paletteW - gap;
+  const size = Math.max(200, Math.min(mainH, availW));
+  canvasWrap.style.width = size + 'px';
+  canvasWrap.style.height = size + 'px';
+}
+const picNumEl = document.getElementById('pic-num');
+const levelNumEl = document.getElementById('level-num');
+const progressEl = document.getElementById('progress');
+const overlayEl = document.getElementById('overlay');
+const modalBtn = document.getElementById('modal-btn');
+const modalTitle = document.getElementById('modal-title');
+const modalText = document.getElementById('modal-text');
+const modalEmoji = document.getElementById('modal-emoji');
+const dragGhost = document.getElementById('drag-ghost');
+const btnReset = document.getElementById('btn-reset');
+const btnSwap = document.getElementById('btn-swap');
+
+function buildShape(part) {
+  let shape;
+  if (part.type === 'circle') {
+    shape = document.createElementNS(SVG_NS, 'circle');
+    shape.setAttribute('cx', part.cx);
+    shape.setAttribute('cy', part.cy);
+    shape.setAttribute('r', part.r);
+  } else if (part.type === 'ellipse') {
+    shape = document.createElementNS(SVG_NS, 'ellipse');
+    shape.setAttribute('cx', part.cx);
+    shape.setAttribute('cy', part.cy);
+    shape.setAttribute('rx', part.rx);
+    shape.setAttribute('ry', part.ry);
+    if (part.rotate) shape.setAttribute('transform', `rotate(${part.rotate} ${part.cx} ${part.cy})`);
+  } else if (part.type === 'rect') {
+    shape = document.createElementNS(SVG_NS, 'rect');
+    shape.setAttribute('x', part.x);
+    shape.setAttribute('y', part.y);
+    shape.setAttribute('width', part.width);
+    shape.setAttribute('height', part.height);
+  } else if (part.type === 'polygon') {
+    shape = document.createElementNS(SVG_NS, 'polygon');
+    shape.setAttribute('points', part.points);
+  } else if (part.type === 'path') {
+    shape = document.createElementNS(SVG_NS, 'path');
+    shape.setAttribute('d', part.d);
+  }
+  shape.setAttribute('fill', '#ffffff');
+  shape.setAttribute('stroke', '#222');
+  shape.setAttribute('stroke-width', part.strokeWidth || 2);
+  shape.setAttribute('stroke-linejoin', 'round');
+  return shape;
+}
+
+function renderPicture() {
+  const pic = PICTURES[pictureIdx];
+  parts = pic.build();
+  totalParts = parts.length;
+  coloredCount = 0;
+  selectedColorNum = null;
+
+  svgEl.innerHTML = '';
+  svgEl.setAttribute('viewBox', pic.viewBox);
+
+  parts.forEach((part, idx) => {
+    const g = document.createElementNS(SVG_NS, 'g');
+    g.classList.add('part');
+    g.dataset.colorNum = part.colorNum;
+    g.dataset.colored = 'false';
+    g.dataset.partIdx = idx;
+
+    const shape = buildShape(part);
+    g.appendChild(shape);
+
+    const text = document.createElementNS(SVG_NS, 'text');
+    text.setAttribute('x', part.labelX);
+    text.setAttribute('y', part.labelY);
+    text.setAttribute('text-anchor', 'middle');
+    text.setAttribute('dominant-baseline', 'central');
+    text.setAttribute('font-size', part.labelSize || 16);
+    text.setAttribute('font-weight', '800');
+    text.setAttribute('fill', '#222');
+    text.classList.add('num-label');
+    text.textContent = part.colorNum;
+    g.appendChild(text);
+
+    g.addEventListener('click', () => {
+      if (selectedColorNum === null) return;
+      attemptColor(g);
+    });
+
+    svgEl.appendChild(g);
+  });
+
+  renderPalette(pic.colors);
+  picNumEl.textContent = pictureIdx + 1;
+  levelNumEl.textContent = pic.level;
+  updateProgress();
+  requestAnimationFrame(layoutCanvas);
+}
+
+window.addEventListener('resize', () => requestAnimationFrame(layoutCanvas));
+
+function renderPalette(colorNums) {
+  paletteEl.innerHTML = '';
+  colorNums.forEach(num => {
+    const col = COLOR_BOOK[num];
+    const sw = document.createElement('div');
+    sw.className = 'color-swatch';
+    if (col.dark) sw.classList.add('dark-text');
+    sw.style.background = col.hex;
+    sw.dataset.colorNum = num;
+    sw.textContent = num;
+    attachSwatchEvents(sw);
+    paletteEl.appendChild(sw);
+  });
+}
+
+function selectColor(num) {
+  selectedColorNum = num;
+  document.querySelectorAll('.color-swatch').forEach(s => {
+    s.classList.toggle('selected', Number(s.dataset.colorNum) === num);
+  });
+}
+
+// --- Drag & Drop ---
+let dragState = null;
+
+function attachSwatchEvents(sw) {
+  sw.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    getAudio();
+    const num = Number(sw.dataset.colorNum);
+    selectColor(num);
+    playClick();
+    try { sw.setPointerCapture(e.pointerId); } catch (_) {}
+    dragState = { swatch: sw, num, active: false, pointerId: e.pointerId };
+    showGhost(num, e.clientX, e.clientY);
+  });
+  sw.addEventListener('pointermove', e => {
+    if (!dragState || dragState.swatch !== sw) return;
+    dragState.active = true;
+    updateGhost(e.clientX, e.clientY);
+  });
+  const endHandler = e => {
+    if (!dragState || dragState.swatch !== sw) return;
+    hideGhost();
+    try { sw.releasePointerCapture(e.pointerId); } catch (_) {}
+    if (dragState.active) {
+      const target = document.elementFromPoint(e.clientX, e.clientY);
+      if (target) {
+        const partG = target.closest('.part');
+        if (partG && svgEl.contains(partG)) {
+          attemptColor(partG);
+        }
+      }
+    }
+    dragState = null;
+  };
+  sw.addEventListener('pointerup', endHandler);
+  sw.addEventListener('pointercancel', endHandler);
+}
+
+function showGhost(num, x, y) {
+  const col = COLOR_BOOK[num];
+  dragGhost.textContent = num;
+  dragGhost.style.background = col.hex;
+  dragGhost.classList.toggle('dark-text', !!col.dark);
+  dragGhost.style.left = x + 'px';
+  dragGhost.style.top = y + 'px';
+  dragGhost.classList.add('show');
+}
+function updateGhost(x, y) {
+  dragGhost.style.left = x + 'px';
+  dragGhost.style.top = y + 'px';
+}
+function hideGhost() { dragGhost.classList.remove('show'); }
+
+// --- Coloring logic ---
+function attemptColor(partG) {
+  if (partG.dataset.colored === 'true') return;
+  if (selectedColorNum === null) return;
+  const required = Number(partG.dataset.colorNum);
+  if (required === selectedColorNum) {
+    const col = COLOR_BOOK[required];
+    const shape = partG.querySelector('circle, ellipse, rect, polygon, path');
+    shape.setAttribute('fill', col.hex);
+    const text = partG.querySelector('text');
+    if (text) text.style.display = 'none';
+    partG.dataset.colored = 'true';
+    coloredCount++;
+    updateProgress();
+    playSuccess();
+    if (coloredCount === totalParts) {
+      setTimeout(onComplete, 400);
+    }
+  } else {
+    playError();
+    partG.classList.remove('shake');
+    void partG.getBoundingClientRect();
+    partG.classList.add('shake');
+    setTimeout(() => partG.classList.remove('shake'), 500);
+  }
+}
+
+function updateProgress() {
+  progressEl.textContent = `${coloredCount}/${totalParts}`;
+}
+
+// --- Completion ---
+function onComplete() {
+  svgEl.classList.add('celebrate');
+  playCelebrate();
+  const isLast = pictureIdx === PICTURES.length - 1;
+  modalEmoji.textContent = isLast ? '🏆' : '⭐';
+  modalTitle.textContent = isLast ? 'סיימת את כל הציורים!' : 'כל הכבוד!';
+  modalText.textContent = isLast
+    ? `צבעת את כל ${PICTURES.length} הציורים`
+    : `סיימת לצבוע את ${PICTURES[pictureIdx].name}`;
+  modalBtn.textContent = isLast ? 'התחל מחדש' : 'לציור הבא';
+  modalBtn.dataset.action = isLast ? 'restart' : 'next';
+  setTimeout(() => {
+    overlayEl.classList.add('show');
+    svgEl.classList.remove('celebrate');
+  }, 1200);
+}
+
+modalBtn.addEventListener('click', () => {
+  const action = modalBtn.dataset.action;
+  overlayEl.classList.remove('show');
+  if (action === 'next') {
+    pictureIdx = Math.min(pictureIdx + 1, PICTURES.length - 1);
+  } else {
+    pictureIdx = 0;
+  }
+  renderPicture();
+});
+
+btnReset.addEventListener('click', () => {
+  getAudio();
+  playClick();
+  overlayEl.classList.remove('show');
+  pictureIdx = 0;
+  renderPicture();
+});
+
+btnSwap.addEventListener('click', () => {
+  getAudio();
+  playClick();
+  overlayEl.classList.remove('show');
+  if (PICTURES.length > 1) {
+    let newIdx;
+    do {
+      newIdx = Math.floor(Math.random() * PICTURES.length);
+    } while (newIdx === pictureIdx);
+    pictureIdx = newIdx;
+  }
+  renderPicture();
+});
+
+renderPicture();
+
+function confirmEndGame() {
+  const overlay = document.createElement('div');
+  overlay.className = 'end-overlay';
+  overlay.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  overlay.querySelector('.yes').addEventListener('click', () => { overlay.remove(); endGame(); });
+  overlay.querySelector('.no').addEventListener('click', () => overlay.remove());
+  document.body.appendChild(overlay);
+}
+function endGame() {
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+document.getElementById('btn-end').addEventListener('click', confirmEndGame);
+</script>
+</body>
+</html>

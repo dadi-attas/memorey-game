@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>משחק חשבון</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔢</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff; user-select: none; touch-action: manipulation;
+  }
+  #app {
+    height: 100vh; width: 100vw;
+    display: flex; flex-direction: column;
+    padding: 14px; gap: 10px;
+  }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex: 0 0 auto; height: 60px;
+  }
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff; padding: 12px 22px;
+    font-size: 18px; font-weight: 700;
+    border-radius: 14px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.94); background: rgba(255, 255, 255, 0.4); }
+  .stats {
+    display: flex; gap: 28px;
+    font-size: 22px; font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .stats b { color: #ffd86b; font-size: 28px; margin-inline-start: 6px; }
+
+  #main {
+    flex: 1 1 auto; display: flex; gap: 20px;
+    min-height: 0;
+  }
+
+  #exercise-area {
+    flex: 1 1 55%;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: space-evenly;
+    padding: 10px;
+    background: rgba(0, 0, 0, 0.18);
+    border-radius: 18px;
+    border: 2px solid rgba(255, 255, 255, 0.12);
+  }
+  #exercise {
+    font-size: clamp(60px, 10vw, 120px);
+    font-weight: 800;
+    letter-spacing: 6px;
+    text-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    direction: ltr;
+    min-height: 1em;
+  }
+  #answer-box {
+    font-size: clamp(50px, 8vw, 90px);
+    font-weight: 800;
+    min-width: 220px; min-height: 1.3em;
+    padding: 8px 30px;
+    text-align: center;
+    background: rgba(255, 255, 255, 0.92);
+    color: #222;
+    border-radius: 18px;
+    border: 4px solid rgba(255, 255, 255, 0.4);
+    box-shadow: inset 0 4px 10px rgba(0, 0, 0, 0.18);
+    min-width: 260px;
+    direction: ltr;
+  }
+  #answer-box.correct {
+    background: #a8e6a1; color: #14532d;
+    animation: pulseGreen 0.7s ease;
+  }
+  #answer-box.wrong {
+    background: #ffb3b3; color: #7a1a1a;
+    animation: shake 0.5s ease;
+  }
+  @keyframes pulseGreen {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.08); box-shadow: 0 0 30px rgba(86, 195, 77, 0.8); }
+    100% { transform: scale(1); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-12px); }
+    40% { transform: translateX(12px); }
+    60% { transform: translateX(-8px); }
+    80% { transform: translateX(8px); }
+  }
+
+  #choices {
+    display: flex; gap: 18px; flex-wrap: wrap;
+    justify-content: center;
+    min-height: 90px;
+  }
+  #choices.hidden { visibility: hidden; }
+
+  #btn-help {
+    background: rgba(255, 255, 255, 0.14);
+    border: 2px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    padding: 8px 22px;
+    font-size: 16px; font-weight: 700;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: background 0.15s, transform 0.08s, border-color 0.2s;
+    opacity: 0.9;
+    letter-spacing: 0.5px;
+  }
+  #btn-help:hover { opacity: 1; background: rgba(255, 255, 255, 0.24); }
+  #btn-help:active { transform: scale(0.94); }
+  #btn-help.help-off {
+    background: rgba(255, 216, 107, 0.22);
+    border-color: rgba(255, 216, 107, 0.65);
+    color: #ffe89a;
+  }
+  .choice-btn {
+    font-size: clamp(32px, 4vw, 48px);
+    font-weight: 800;
+    padding: 16px 40px;
+    min-width: 130px;
+    background: linear-gradient(135deg, #ffd86b 0%, #ffb347 100%);
+    color: #333;
+    border: 3px solid rgba(255, 255, 255, 0.5);
+    border-radius: 16px;
+    cursor: pointer;
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.3);
+    transition: transform 0.08s, filter 0.15s;
+  }
+  .choice-btn:hover { filter: brightness(1.08); }
+  .choice-btn:active { transform: scale(0.94); filter: brightness(0.9); }
+
+  #keypad-wrap {
+    flex: 0 0 42%;
+    display: flex; flex-direction: column;
+    justify-content: center;
+  }
+  #keypad {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 10px;
+    flex: 1 1 auto;
+  }
+  .key {
+    background: linear-gradient(180deg, rgba(255,255,255,0.25) 0%, rgba(255,255,255,0.12) 100%);
+    border: 3px solid rgba(255, 255, 255, 0.3);
+    color: #fff;
+    font-size: clamp(32px, 4vw, 52px);
+    font-weight: 800;
+    border-radius: 16px;
+    cursor: pointer;
+    transition: transform 0.06s, background 0.15s, box-shadow 0.1s;
+    display: flex; align-items: center; justify-content: center;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.35);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.28), inset 0 2px 0 rgba(255, 255, 255, 0.15);
+  }
+  .key:hover { background: linear-gradient(180deg, rgba(255,255,255,0.35) 0%, rgba(255,255,255,0.2) 100%); }
+  .key:active, .key.pressed {
+    transform: scale(0.92);
+    background: linear-gradient(180deg, rgba(255,255,255,0.45) 0%, rgba(255,255,255,0.3) 100%);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.3), inset 0 2px 6px rgba(0, 0, 0, 0.2);
+  }
+  .key.clear { background: linear-gradient(180deg, #ff8a8a 0%, #e55b5b 100%); border-color: rgba(255,255,255,0.5); }
+  .key.clear:hover { filter: brightness(1.08); }
+  .key.enter { background: linear-gradient(180deg, #7dd87d 0%, #3fa83f 100%); border-color: rgba(255,255,255,0.5); }
+  .key.enter:hover { filter: brightness(1.08); }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס</button>
+    <div class="stats">
+      <span>תרגיל: <b id="ex-num">1</b></span>
+      <span>נכונים: <b id="correct-num">0</b></span>
+    </div>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="main">
+    <div id="keypad-wrap">
+      <div id="keypad">
+        <div class="key" data-key="7">7</div>
+        <div class="key" data-key="8">8</div>
+        <div class="key" data-key="9">9</div>
+        <div class="key" data-key="4">4</div>
+        <div class="key" data-key="5">5</div>
+        <div class="key" data-key="6">6</div>
+        <div class="key" data-key="1">1</div>
+        <div class="key" data-key="2">2</div>
+        <div class="key" data-key="3">3</div>
+        <div class="key enter" data-key="enter">✓</div>
+        <div class="key" data-key="0">0</div>
+        <div class="key clear" data-key="clear">נקה</div>
+      </div>
+    </div>
+    <div id="exercise-area">
+      <div id="exercise">—</div>
+      <div id="answer-box">&nbsp;</div>
+      <button id="btn-help">לא צריך עזרה</button>
+      <div id="choices"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const exerciseEl = document.getElementById('exercise');
+const answerEl = document.getElementById('answer-box');
+const choicesEl = document.getElementById('choices');
+const keypadEl = document.getElementById('keypad');
+const exNumEl = document.getElementById('ex-num');
+const correctNumEl = document.getElementById('correct-num');
+const btnReset = document.getElementById('btn-reset');
+const btnHelp = document.getElementById('btn-help');
+
+let current = null;        // current exercise { first, second, operator, answer }
+let currentInput = '';
+let exNum = 1;
+let correctCount = 0;
+let useAddition = true;
+let accepting = true;
+let helpEnabled = loadHelpPref();
+
+function loadHelpPref() {
+  try {
+    const v = localStorage.getItem('math-help');
+    return v === null ? true : v === 'true';
+  } catch (_) { return true; }
+}
+function saveHelpPref() {
+  try { localStorage.setItem('math-help', helpEnabled); } catch (_) {}
+}
+
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+
+function tone({ freq = 800, type = 'triangle', duration = 0.08, volume = 0.18, startOffset = 0, freqEnd = null }) {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  const t0 = ac.currentTime + startOffset;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+
+function playClick() {
+  tone({ freq: 880, type: 'triangle', duration: 0.06, volume: 0.12 });
+}
+function playSuccess() {
+  tone({ freq: 523.25, type: 'sine', duration: 0.12, volume: 0.18, startOffset: 0 });
+  tone({ freq: 659.25, type: 'sine', duration: 0.12, volume: 0.18, startOffset: 0.1 });
+  tone({ freq: 783.99, type: 'sine', duration: 0.2, volume: 0.2, startOffset: 0.2 });
+}
+function playError() {
+  tone({ freq: 300, freqEnd: 150, type: 'sawtooth', duration: 0.3, volume: 0.14 });
+}
+
+function randInt(a, b) { return Math.floor(Math.random() * (b - a + 1)) + a; }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+function nextExercise() {
+  const second = randInt(1, 9);
+  let first, operator, answer;
+  if (useAddition) {
+    first = randInt(1, 99 - second);
+    answer = first + second;
+    operator = '+';
+  } else {
+    first = randInt(second, 99);
+    answer = first - second;
+    operator = '−';
+  }
+  useAddition = !useAddition;
+  return { first, second, operator, answer };
+}
+
+function generateChoices(correct) {
+  const set = new Set([correct]);
+  let guard = 0;
+  while (set.size < 3 && guard++ < 50) {
+    const delta = randInt(-5, 5);
+    if (delta === 0) continue;
+    const v = correct + delta;
+    if (v < 0 || v > 108) continue;
+    set.add(v);
+  }
+  while (set.size < 3) set.add(randInt(0, 108));
+  return shuffle([...set]);
+}
+
+function renderExercise() {
+  current = nextExercise();
+  currentInput = '';
+  accepting = true;
+  exerciseEl.textContent = `${current.first} ${current.operator} ${current.second} = ?`;
+  answerEl.textContent = ' ';
+  answerEl.classList.remove('correct', 'wrong');
+  exNumEl.textContent = exNum;
+
+  choicesEl.innerHTML = '';
+  const options = generateChoices(current.answer);
+  options.forEach(v => {
+    const btn = document.createElement('button');
+    btn.className = 'choice-btn';
+    btn.textContent = v;
+    btn.addEventListener('click', () => {
+      if (!accepting) return;
+      if (!helpEnabled) return;
+      playClick();
+      submitAnswer(v);
+    });
+    choicesEl.appendChild(btn);
+  });
+  applyHelpState();
+}
+
+function applyHelpState() {
+  choicesEl.classList.toggle('hidden', !helpEnabled);
+  btnHelp.textContent = helpEnabled ? 'לא צריך עזרה' : 'צריך עזרה';
+  btnHelp.classList.toggle('help-off', !helpEnabled);
+}
+
+function updateAnswerDisplay() {
+  answerEl.textContent = currentInput === '' ? ' ' : currentInput;
+}
+
+function submitAnswer(value) {
+  if (!accepting) return;
+  const guess = Number(value);
+  if (guess === current.answer) {
+    accepting = false;
+    answerEl.textContent = current.answer;
+    answerEl.classList.add('correct');
+    playSuccess();
+    correctCount++;
+    correctNumEl.textContent = correctCount;
+    setTimeout(() => {
+      exNum++;
+      renderExercise();
+    }, 850);
+  } else {
+    playError();
+    answerEl.classList.remove('wrong');
+    void answerEl.offsetWidth;
+    answerEl.classList.add('wrong');
+    setTimeout(() => {
+      currentInput = '';
+      updateAnswerDisplay();
+      answerEl.classList.remove('wrong');
+    }, 550);
+  }
+}
+
+function handleKey(key) {
+  if (!accepting) return;
+  getAudio();
+  if (key === 'clear') {
+    playClick();
+    currentInput = '';
+    updateAnswerDisplay();
+    return;
+  }
+  if (key === 'enter') {
+    if (currentInput === '') return;
+    playClick();
+    submitAnswer(currentInput);
+    return;
+  }
+  // digit
+  playClick();
+  if (currentInput.length >= 3) return;
+  if (currentInput === '0') currentInput = '';
+  currentInput += key;
+  updateAnswerDisplay();
+}
+
+keypadEl.querySelectorAll('.key').forEach(k => {
+  k.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    k.classList.add('pressed');
+  });
+  const release = () => k.classList.remove('pressed');
+  k.addEventListener('pointerup', release);
+  k.addEventListener('pointerleave', release);
+  k.addEventListener('pointercancel', release);
+  k.addEventListener('click', () => handleKey(k.dataset.key));
+});
+
+// Physical keyboard support for desktop testing
+window.addEventListener('keydown', e => {
+  if (e.key >= '0' && e.key <= '9') {
+    handleKey(e.key);
+    flashKey(e.key);
+  } else if (e.key === 'Enter') {
+    handleKey('enter');
+    flashKey('enter');
+  } else if (e.key === 'Backspace' || e.key === 'Delete') {
+    handleKey('clear');
+    flashKey('clear');
+  }
+});
+
+function flashKey(k) {
+  const el = keypadEl.querySelector(`[data-key="${k}"]`);
+  if (!el) return;
+  el.classList.add('pressed');
+  setTimeout(() => el.classList.remove('pressed'), 120);
+}
+
+btnReset.addEventListener('click', () => {
+  playClick();
+  exNum = 1;
+  correctCount = 0;
+  useAddition = true;
+  helpEnabled = true;
+  try { localStorage.removeItem('math-help'); } catch (_) {}
+  correctNumEl.textContent = 0;
+  renderExercise();
+});
+
+btnHelp.addEventListener('click', () => {
+  getAudio();
+  playClick();
+  helpEnabled = !helpEnabled;
+  saveHelpPref();
+  applyHelpState();
+});
+
+renderExercise();
+
+function confirmEndGame() {
+  const overlay = document.createElement('div');
+  overlay.className = 'end-overlay';
+  overlay.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  overlay.querySelector('.yes').addEventListener('click', () => { overlay.remove(); endGame(); });
+  overlay.querySelector('.no').addEventListener('click', () => overlay.remove());
+  document.body.appendChild(overlay);
+}
+function endGame() {
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+document.getElementById('btn-end').addEventListener('click', confirmEndGame);
+</script>
+</body>
+</html>

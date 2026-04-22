@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>זהה את הצל</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>👥</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff; user-select: none; touch-action: manipulation;
+  }
+  #app { height: 100vh; width: 100vw; display: flex; flex-direction: column; padding: 12px; gap: 8px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 0 0 auto; height: 56px; }
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff; padding: 11px 20px;
+    font-size: 17px; font-weight: 700;
+    border-radius: 12px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.94); }
+  .info {
+    flex: 1 1 auto; display: flex; justify-content: center; align-items: center;
+    gap: 28px; font-size: 20px; font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .info span b { color: #ffd86b; font-size: 26px; margin-inline-start: 6px; }
+
+  #status {
+    text-align: center;
+    font-size: 22px; font-weight: 700;
+    flex: 0 0 auto;
+    min-height: 30px;
+    color: #ffd86b;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+  }
+
+  #shadow-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 6px;
+  }
+  #shadow-box {
+    background: radial-gradient(ellipse at center, #fffdf7 0%, #f4e9cf 70%, #d9c38e 100%);
+    border-radius: 26px;
+    width: min(80%, 560px);
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: inset 0 4px 18px rgba(0,0,0,0.25), 0 10px 28px rgba(0,0,0,0.45);
+    border: 3px solid rgba(255,255,255,0.5);
+    position: relative;
+    padding: 14px;
+    transition: box-shadow 0.25s;
+  }
+  #shadow-box.correct {
+    box-shadow: inset 0 0 30px rgba(86,195,77,0.3), 0 0 40px rgba(86,195,77,0.5);
+  }
+  #shadow-emoji {
+    font-size: var(--shadow-size, 220px);
+    line-height: 1;
+    filter: brightness(0);
+    user-select: none;
+  }
+  #shadow-emoji.revealed {
+    animation: reveal 1s ease forwards;
+  }
+  @keyframes reveal {
+    0%   { filter: brightness(0) blur(0); transform: scale(1) rotate(0); }
+    25%  { filter: brightness(0.3) blur(4px); transform: scale(1.06) rotate(-2deg); }
+    55%  { filter: brightness(1) blur(0); transform: scale(1.15) rotate(3deg); }
+    80%  { filter: brightness(1); transform: scale(1.06) rotate(-1deg); }
+    100% { filter: brightness(1); transform: scale(1) rotate(0); }
+  }
+
+  #choices {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 18px;
+    justify-content: center;
+    align-items: center;
+    padding: 8px;
+    min-height: 140px;
+  }
+  .choice {
+    width: var(--choice-size, 140px);
+    height: var(--choice-size, 140px);
+    background: #fff;
+    border: 4px solid rgba(255,255,255,0.65);
+    border-radius: 22px;
+    font-size: calc(var(--choice-size, 140px) * 0.62);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+    transition: transform 0.1s, box-shadow 0.15s, background 0.2s, border-color 0.15s;
+    line-height: 1;
+  }
+  .choice:hover { transform: scale(1.05); box-shadow: 0 10px 24px rgba(0,0,0,0.5); }
+  .choice:active { transform: scale(0.96); }
+  .choice.correct {
+    background: #a8e6a1;
+    border-color: #3fa83f;
+    animation: pulseGreen 0.8s ease;
+  }
+  .choice.wrong {
+    background: #ffb3b3;
+    border-color: #e55b5b;
+    animation: shake 0.5s ease;
+  }
+  .choice.locked { pointer-events: none; }
+  @keyframes pulseGreen {
+    0%, 100% { transform: scale(1); box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
+    50%      { transform: scale(1.1);  box-shadow: 0 0 35px rgba(86,195,77,0.95); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-9px); }
+    40% { transform: translateX(9px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+
+  #overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  #overlay.show { display: flex; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 30px 44px; border-radius: 22px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    animation: pop 0.4s ease;
+  }
+  @keyframes pop {
+    0%   { transform: scale(0.5); opacity: 0; }
+    60%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  .modal .emoji { font-size: 64px; margin-bottom: 10px; }
+  .modal h2 { font-size: 30px; margin-bottom: 10px; }
+  .modal p { font-size: 18px; margin-bottom: 20px; opacity: 0.95; }
+  .modal .btn { background: #fff; color: #333; font-size: 18px; padding: 12px 28px; }
+  .modal .btn:hover { background: #ffd86b; }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal p { font-size: 15px; margin-bottom: 14px; opacity: 0.9; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס</button>
+    <div class="info">
+      <span>רמה: <b id="level-num">1</b></span>
+      <span><span id="progress-label">נכונים:</span> <b id="progress-num">0/3</b></span>
+    </div>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="status">מהו הצל?</div>
+  <div id="shadow-wrap">
+    <div id="shadow-box">
+      <div id="shadow-emoji">🐟</div>
+    </div>
+  </div>
+  <div id="choices"></div>
+</div>
+
+<div id="overlay">
+  <div class="modal">
+    <div class="emoji" id="modal-emoji">🌟</div>
+    <h2 id="modal-title">רמה חדשה!</h2>
+    <p id="modal-text"></p>
+    <button id="modal-btn" class="btn">המשך</button>
+  </div>
+</div>
+
+<script>
+const LEVELS = [
+  { buttons: 3, sameCategory: false, successesToAdvance: 3 },
+  { buttons: 3, sameCategory: true,  successesToAdvance: 3 },
+  { buttons: 4, sameCategory: true,  successesToAdvance: 3 },
+  { buttons: 4, sameCategory: true,  successesToAdvance: Infinity },
+];
+
+const CATEGORIES = [
+  ['🐟', '🐠', '🦈', '🐡', '🐙', '🦀', '🦐', '🦞', '🐬', '🐳', '🐋', '🦭'],
+  ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🦁', '🐯', '🐷', '🐮', '🦒', '🐗', '🐨', '🐘', '🐵', '🐺'],
+  ['🐔', '🐧', '🦆', '🦅', '🦉', '🦜', '🕊️', '🦢', '🦩', '🦃'],
+  ['🦋', '🐝', '🐞', '🐛', '🦗', '🐜', '🕷️', '🐌'],
+  ['🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍈', '🍑', '🥝', '🥭', '🍍'],
+  ['🥕', '🌽', '🥔', '🥒', '🍆', '🫑', '🥦', '🍅', '🧄', '🧅'],
+  ['🚗', '🚕', '🚙', '🚌', '🚒', '🚑', '🚓', '🚚', '🚜', '🏍️', '🚲', '🛵', '🚂'],
+  ['🔨', '🔧', '🪛', '🪓', '🪚', '⛏️', '🧰'],
+  ['🎸', '🎹', '🎺', '🎻', '🥁', '🎷', '🪕', '🪗', '🎤'],
+  ['🌹', '🌻', '🌷', '🌼', '🌺', '💐', '🏵️', '🪷'],
+  ['⚽', '🏀', '🏈', '⚾', '🎾', '🏐', '🏉', '🥎'],
+  ['☀️', '⛅', '☁️', '🌧️', '❄️', '⛄', '🌈', '⛈️'],
+  ['🍕', '🍔', '🌭', '🍟', '🥪', '🌮', '🌯', '🥙', '🍖', '🍗'],
+  ['🏠', '🏢', '🏫', '🏥', '🏰', '🏯', '🗼', '🗽', '⛪'],
+];
+
+const SUCCESSES_TO_ADVANCE = 3;
+const MISSES_TO_DESCEND = 5;
+const INACTIVITY_MS = 12000;
+const AUTO_END_MS = 10000;
+const RESULT_MS = 1300;
+const WRONG_RESET_MS = 700;
+
+const shadowBoxEl = document.getElementById('shadow-box');
+const shadowEmojiEl = document.getElementById('shadow-emoji');
+const choicesEl = document.getElementById('choices');
+const statusEl = document.getElementById('status');
+const levelNumEl = document.getElementById('level-num');
+const progressLabelEl = document.getElementById('progress-label');
+const progressNumEl = document.getElementById('progress-num');
+const btnReset = document.getElementById('btn-reset');
+const btnEnd = document.getElementById('btn-end');
+const overlay = document.getElementById('overlay');
+const modalEmoji = document.getElementById('modal-emoji');
+const modalTitle = document.getElementById('modal-title');
+const modalText = document.getElementById('modal-text');
+const modalBtn = document.getElementById('modal-btn');
+
+let levelIdx = 0;
+let successCount = 0;
+let missStreak = 0;
+let lastLevelScore = 0;
+let state = 'playing';
+let correctIdx = -1;
+let inactivityTimer = null;
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// --- Audio ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.15, startOffset = 0, freqEnd = null }) {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  const t0 = ac.currentTime + startOffset;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function playSuccess() {
+  tone({ freq: 523.25, type: 'sine', duration: 0.13, volume: 0.16 });
+  tone({ freq: 659.25, type: 'sine', duration: 0.14, volume: 0.16, startOffset: 0.1 });
+}
+function playError() { tone({ freq: 260, freqEnd: 150, type: 'sawtooth', duration: 0.3, volume: 0.13 }); }
+function playLevelUp() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.18, volume: 0.18, startOffset: i * 0.1 });
+  });
+}
+
+// --- Layout ---
+function layoutGame() {
+  const wrapH = document.getElementById('shadow-wrap').clientHeight;
+  const boxW = shadowBoxEl.clientWidth;
+  const boxH = shadowBoxEl.clientHeight;
+  const shadowSize = Math.max(80, Math.floor(Math.min(boxW * 0.68, boxH * 0.75)));
+  shadowEmojiEl.style.setProperty('--shadow-size', shadowSize + 'px');
+
+  const w = window.innerWidth;
+  const n = LEVELS[levelIdx].buttons;
+  const gapTotal = (n - 1) * 18 + 40;
+  const choiceSize = Math.min(160, Math.floor((w - gapTotal) / n), choicesEl.clientHeight - 20);
+  document.querySelectorAll('.choice').forEach(el => {
+    el.style.setProperty('--choice-size', Math.max(90, choiceSize) + 'px');
+  });
+}
+
+// --- Round setup ---
+function startRound() {
+  const lvl = LEVELS[levelIdx];
+  const n = lvl.buttons;
+
+  let items;
+  if (lvl.sameCategory) {
+    const cat = pick(CATEGORIES.filter(c => c.length >= n));
+    items = shuffle([...cat]).slice(0, n);
+  } else {
+    // Each button from a different category for maximum contrast
+    const cats = shuffle([...CATEGORIES]).slice(0, n);
+    items = cats.map(c => pick(c));
+    // Ensure uniqueness
+    const seen = new Set();
+    items = items.filter(e => { if (seen.has(e)) return false; seen.add(e); return true; });
+    while (items.length < n) {
+      const emoji = pick(pick(CATEGORIES));
+      if (!items.includes(emoji)) items.push(emoji);
+    }
+  }
+
+  correctIdx = Math.floor(Math.random() * n);
+  const correctEmoji = items[correctIdx];
+
+  shadowEmojiEl.classList.remove('revealed');
+  // Force reflow so removing class resets animation cleanly
+  void shadowEmojiEl.offsetWidth;
+  shadowEmojiEl.textContent = correctEmoji;
+  shadowBoxEl.classList.remove('correct');
+
+  choicesEl.innerHTML = '';
+  items.forEach((emoji, idx) => {
+    const btn = document.createElement('div');
+    btn.className = 'choice';
+    btn.textContent = emoji;
+    btn.addEventListener('click', () => onChoice(idx, btn));
+    choicesEl.appendChild(btn);
+  });
+
+  state = 'playing';
+  statusEl.textContent = 'מהו הצל?';
+  updateInfo();
+  resetInactivity();
+  requestAnimationFrame(layoutGame);
+}
+
+function onChoice(idx, btnEl) {
+  if (state !== 'playing') return;
+  getAudio();
+  resetInactivity();
+
+  if (idx === correctIdx) {
+    state = 'result';
+    document.querySelectorAll('.choice').forEach(el => el.classList.add('locked'));
+    btnEl.classList.add('correct');
+    playSuccess();
+    shadowEmojiEl.classList.add('revealed');
+    shadowBoxEl.classList.add('correct');
+    statusEl.textContent = 'מצוין!';
+
+    const isLast = levelIdx === LEVELS.length - 1;
+    if (isLast) lastLevelScore++;
+    else successCount++;
+    missStreak = 0;
+    updateInfo();
+
+    setTimeout(() => {
+      if (!isLast && successCount >= SUCCESSES_TO_ADVANCE) {
+        showLevelUp();
+      } else {
+        startRound();
+      }
+    }, RESULT_MS);
+  } else {
+    // Wrong — shake and error sound. Shadow stays, user tries again.
+    btnEl.classList.add('wrong');
+    playError();
+    missStreak++;
+
+    setTimeout(() => {
+      btnEl.classList.remove('wrong');
+      // Silently descend a level after N misses in a row
+      if (missStreak >= MISSES_TO_DESCEND && levelIdx > 0) {
+        levelIdx--;
+        successCount = 0;
+        missStreak = 0;
+        startRound();
+      }
+    }, WRONG_RESET_MS);
+  }
+}
+
+function showLevelUp() {
+  modalEmoji.textContent = '🌟';
+  modalTitle.textContent = 'רמה חדשה!';
+  modalText.textContent = `עולים לרמה ${levelIdx + 2}`;
+  modalBtn.textContent = 'המשך';
+  modalBtn.onclick = () => {
+    overlay.classList.remove('show');
+    levelIdx++;
+    successCount = 0;
+    missStreak = 0;
+    startRound();
+  };
+  overlay.classList.add('show');
+  playLevelUp();
+}
+
+function updateInfo() {
+  levelNumEl.textContent = levelIdx + 1;
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (isLast) {
+    progressLabelEl.textContent = 'ניקוד:';
+    progressNumEl.textContent = lastLevelScore;
+  } else {
+    progressLabelEl.textContent = 'נכונים:';
+    progressNumEl.textContent = `${successCount}/${SUCCESSES_TO_ADVANCE}`;
+  }
+}
+
+// --- Inactivity dialog ---
+function resetInactivity() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(showInactivityDialog, INACTIVITY_MS);
+}
+function showInactivityDialog() {
+  if (state !== 'playing') return;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>12 שניות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  let to;
+  const cleanup = (choice) => {
+    if (to) { clearTimeout(to); to = null; }
+    if (o.parentNode) o.remove();
+    if (choice === 'yes') {
+      state = 'playing';
+      resetInactivity();
+    } else {
+      endGame();
+    }
+  };
+  o.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  o.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+  document.body.appendChild(o);
+}
+
+// --- Reset / End ---
+btnReset.addEventListener('click', () => {
+  getAudio();
+  overlay.classList.remove('show');
+  levelIdx = 0;
+  successCount = 0;
+  missStreak = 0;
+  lastLevelScore = 0;
+  startRound();
+});
+
+function confirmEndGame() {
+  clearTimeout(inactivityTimer);
+  const prevState = state;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  o.querySelector('.yes').addEventListener('click', () => { o.remove(); endGame(); });
+  o.querySelector('.no').addEventListener('click', () => {
+    o.remove();
+    state = prevState === 'paused' ? 'playing' : prevState;
+    resetInactivity();
+  });
+  document.body.appendChild(o);
+}
+function endGame() {
+  clearTimeout(inactivityTimer);
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+btnEnd.addEventListener('click', confirmEndGame);
+
+window.addEventListener('resize', layoutGame);
+
+startRound();
+</script>
+</body>
+</html>

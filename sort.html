@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>מיין לפי קבוצה</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🗂️</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff; user-select: none; touch-action: manipulation;
+  }
+  #app { height: 100vh; width: 100vw; display: flex; flex-direction: column; padding: 12px; gap: 8px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 0 0 auto; height: 56px; }
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff; padding: 11px 20px;
+    font-size: 17px; font-weight: 700;
+    border-radius: 12px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.94); }
+  .info {
+    flex: 1 1 auto; display: flex; justify-content: center; align-items: center;
+    gap: 28px; font-size: 20px; font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .info span b { color: #ffd86b; font-size: 26px; margin-inline-start: 6px; }
+
+  #status {
+    text-align: center;
+    font-size: 22px; font-weight: 700;
+    flex: 0 0 auto;
+    min-height: 30px;
+    color: #ffd86b;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+  }
+
+  #card-wrap {
+    flex: 1 1 auto;
+    min-height: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 8px;
+  }
+  #center-card {
+    background: radial-gradient(ellipse at center, #fffdf7 0%, #f4e9cf 75%, #e8d9a8 100%);
+    border-radius: 26px;
+    box-shadow: inset 0 4px 18px rgba(0,0,0,0.22), 0 10px 28px rgba(0,0,0,0.4);
+    border: 4px solid rgba(255,255,255,0.55);
+    width: var(--card-size, 260px);
+    height: var(--card-size, 260px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: calc(var(--card-size, 260px) * 0.6);
+    line-height: 1;
+    position: relative;
+    will-change: transform, opacity;
+    transition: transform 0.85s cubic-bezier(0.55, 0, 0.2, 1),
+                opacity 0.3s ease 0.5s;
+  }
+  #center-card.tossing {
+    transform: var(--toss-transform);
+    opacity: 0;
+  }
+  #center-card.enter {
+    animation: cardEnter 0.5s ease;
+  }
+  @keyframes cardEnter {
+    0%   { transform: scale(0.3) rotate(-20deg); opacity: 0; }
+    60%  { transform: scale(1.12) rotate(4deg); opacity: 1; }
+    100% { transform: scale(1) rotate(0); opacity: 1; }
+  }
+
+  #baskets {
+    flex: 0 0 auto;
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    align-items: flex-end;
+    padding: 8px;
+    min-height: 170px;
+  }
+  .basket {
+    flex: 0 0 auto;
+    width: var(--basket-size, 140px);
+    min-height: var(--basket-size, 140px);
+    background: linear-gradient(180deg, #fff 0%, #f4f0e4 100%);
+    border: 4px solid rgba(255,255,255,0.7);
+    border-radius: 20px;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding: 10px 8px 14px;
+    box-shadow: 0 6px 18px rgba(0,0,0,0.4);
+    transition: transform 0.1s, box-shadow 0.15s, background 0.2s, border-color 0.15s;
+    position: relative;
+    overflow: hidden;
+  }
+  .basket:hover { transform: translateY(-4px) scale(1.03); box-shadow: 0 12px 24px rgba(0,0,0,0.5); }
+  .basket:active { transform: scale(0.97); }
+  .basket .basket-emoji {
+    font-size: calc(var(--basket-size, 140px) * 0.38);
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+  .basket .basket-name {
+    font-size: calc(var(--basket-size, 140px) * 0.15);
+    font-weight: 800;
+    color: #333;
+    text-align: center;
+    line-height: 1.15;
+  }
+  .basket.correct {
+    background: #a8e6a1;
+    border-color: #3fa83f;
+    animation: basketPulse 0.8s ease 0.55s;
+  }
+  .basket.wrong {
+    background: #ffb3b3;
+    border-color: #e55b5b;
+    animation: shake 0.5s ease;
+  }
+  .basket.locked { pointer-events: none; }
+  @keyframes basketPulse {
+    0%, 100% { transform: scale(1); box-shadow: 0 6px 18px rgba(0,0,0,0.4); }
+    40%      { transform: scale(1.15); box-shadow: 0 0 35px rgba(86,195,77,0.95); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-9px); }
+    40% { transform: translateX(9px); }
+    60% { transform: translateX(-5px); }
+    80% { transform: translateX(5px); }
+  }
+
+  #overlay {
+    position: fixed; inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: none; align-items: center; justify-content: center;
+    z-index: 100; backdrop-filter: blur(4px);
+  }
+  #overlay.show { display: flex; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+  .modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 30px 44px; border-radius: 22px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+    animation: pop 0.4s ease;
+  }
+  @keyframes pop {
+    0%   { transform: scale(0.5); opacity: 0; }
+    60%  { transform: scale(1.08); opacity: 1; }
+    100% { transform: scale(1); }
+  }
+  .modal .emoji { font-size: 64px; margin-bottom: 10px; }
+  .modal h2 { font-size: 30px; margin-bottom: 10px; }
+  .modal p { font-size: 18px; margin-bottom: 20px; opacity: 0.95; }
+  .modal .btn { background: #fff; color: #333; font-size: 18px; padding: 12px 28px; }
+  .modal .btn:hover { background: #ffd86b; }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal p { font-size: 15px; margin-bottom: 14px; opacity: 0.9; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס</button>
+    <div class="info">
+      <span>רמה: <b id="level-num">1</b></span>
+      <span><span id="progress-label">נכונים:</span> <b id="progress-num">0/3</b></span>
+    </div>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="status">לאיזו קבוצה הפריט שייך?</div>
+  <div id="card-wrap">
+    <div id="center-card"></div>
+  </div>
+  <div id="baskets"></div>
+</div>
+
+<div id="overlay">
+  <div class="modal">
+    <div class="emoji" id="modal-emoji">🌟</div>
+    <h2 id="modal-title">רמה חדשה!</h2>
+    <p id="modal-text"></p>
+    <button id="modal-btn" class="btn">המשך</button>
+  </div>
+</div>
+
+<script>
+const LEVELS = [
+  { numButtons: 2, successesToAdvance: 3 },
+  { numButtons: 3, successesToAdvance: 3 },
+  { numButtons: 4, successesToAdvance: 3 },
+  { numButtons: 5, successesToAdvance: Infinity },
+];
+
+// Categories — clearly distinct from each other, no ambiguous border items.
+const CATEGORIES = [
+  { name: 'פירות',    icon: '🍎', items: ['🍎','🍌','🍊','🍇','🍓','🍉','🍋','🍍','🥭','🍒','🍑','🥝','🍏','🍐'] },
+  { name: 'ירקות',    icon: '🥕', items: ['🥕','🌽','🥒','🍆','🫑','🧅','🥔','🥦','🧄'] },
+  { name: 'חיות',     icon: '🐶', items: ['🐶','🐱','🐰','🦁','🐘','🐵','🐴','🐮','🐷','🦊','🐻','🐼','🐭','🐯','🐻‍❄️'] },
+  { name: 'תחבורה',   icon: '🚗', items: ['🚗','🚕','🚌','🚒','🚑','🚓','🚚','🚜','🏍️','🚲','✈️','⛵','🚢','🚂','🚁'] },
+  { name: 'כלי עבודה', icon: '🔨', items: ['🔨','🔧','🪛','🪓','🪚','⛏️','🧰'] },
+  { name: 'כלי נגינה', icon: '🎸', items: ['🎸','🎹','🎺','🥁','🎻','🎷','🪕','🪗'] },
+  { name: 'בגדים',    icon: '👕', items: ['👕','👖','👗','🧥','👔','🧣','🧤','🧦','👒','🎩','👞','👟','👠','🥿'] },
+  { name: 'פרחים',    icon: '🌸', items: ['🌸','🌹','🌻','🌷','🌺','💐','🏵️','🪷'] },
+  { name: 'כדורי ספורט', icon: '⚽', items: ['⚽','🏀','🏈','🎾','🏐','🏉','⚾','🥎'] },
+  { name: 'מבנים',    icon: '🏠', items: ['🏠','🏢','🏫','🏥','🏰','🏯','🗼','⛪'] },
+  { name: 'מזג אוויר', icon: '☀️', items: ['☀️','☁️','🌧️','❄️','🌈','⛅','⛈️','⛄'] },
+  { name: 'מתוקים',   icon: '🎂', items: ['🎂','🧁','🍰','🍪','🍩','🍫','🍬','🍭','🍦','🍧'] },
+  { name: 'אוכל מהיר', icon: '🍔', items: ['🍔','🍕','🌭','🍟','🥪','🌮','🌯','🥙'] },
+];
+
+const SUCCESSES_TO_ADVANCE = 3;
+const MISSES_TO_DESCEND = 5;
+const INACTIVITY_MS = 12000;
+const AUTO_END_MS = 10000;
+const TOSS_DURATION_MS = 850;
+const ROUND_END_DELAY_MS = 1400;
+
+const centerCardEl = document.getElementById('center-card');
+const basketsEl = document.getElementById('baskets');
+const statusEl = document.getElementById('status');
+const levelNumEl = document.getElementById('level-num');
+const progressLabelEl = document.getElementById('progress-label');
+const progressNumEl = document.getElementById('progress-num');
+const btnReset = document.getElementById('btn-reset');
+const btnEnd = document.getElementById('btn-end');
+const overlay = document.getElementById('overlay');
+const modalEmoji = document.getElementById('modal-emoji');
+const modalTitle = document.getElementById('modal-title');
+const modalText = document.getElementById('modal-text');
+const modalBtn = document.getElementById('modal-btn');
+
+let levelIdx = 0;
+let successCount = 0;
+let missStreak = 0;
+let lastLevelScore = 0;
+let state = 'playing';
+let currentItem = null;
+let correctCategoryIdx = -1;
+let currentButtonCategories = [];
+let wrongAttempts = 0;
+let descendQueued = false;
+let recentItems = [];
+let inactivityTimer = null;
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// --- Audio ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.15, startOffset = 0, freqEnd = null }) {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  const t0 = ac.currentTime + startOffset;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function playSuccess() {
+  tone({ freq: 523.25, type: 'sine', duration: 0.13, volume: 0.16 });
+  tone({ freq: 659.25, type: 'sine', duration: 0.14, volume: 0.16, startOffset: 0.1 });
+}
+function playError() { tone({ freq: 260, freqEnd: 150, type: 'sawtooth', duration: 0.3, volume: 0.13 }); }
+function playLevelUp() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.18, volume: 0.18, startOffset: i * 0.1 });
+  });
+}
+
+// --- Layout ---
+function layoutGame() {
+  const windowH = window.innerHeight;
+  const windowW = window.innerWidth;
+  const cardSize = Math.max(160, Math.min(320, Math.floor(windowH * 0.32)));
+  centerCardEl.style.setProperty('--card-size', cardSize + 'px');
+
+  const n = LEVELS[levelIdx].numButtons;
+  const gap = 14;
+  const availW = windowW - 24 - gap * (n - 1);
+  const basketSize = Math.max(120, Math.min(170, Math.floor(availW / n)));
+  document.querySelectorAll('.basket').forEach(el => {
+    el.style.setProperty('--basket-size', basketSize + 'px');
+  });
+}
+
+// --- Round ---
+function pickItem() {
+  // Pick a category for the correct answer, avoiding repeated items
+  const cat = pick(CATEGORIES);
+  let item;
+  const available = cat.items.filter(i => !recentItems.includes(i));
+  item = available.length > 0 ? pick(available) : pick(cat.items);
+  recentItems.push(item);
+  if (recentItems.length > 10) recentItems.shift();
+  return { category: cat, item };
+}
+
+function pickButtonCategories(correctCat, numButtons) {
+  const others = CATEGORIES.filter(c => c !== correctCat);
+  shuffle(others);
+  const distractors = others.slice(0, numButtons - 1);
+  return shuffle([correctCat, ...distractors]);
+}
+
+function startRound() {
+  const lvl = LEVELS[levelIdx];
+  const { category, item } = pickItem();
+  currentItem = item;
+  currentButtonCategories = pickButtonCategories(category, lvl.numButtons);
+  correctCategoryIdx = currentButtonCategories.indexOf(category);
+
+  // Render center card with the item
+  centerCardEl.classList.remove('tossing');
+  centerCardEl.style.removeProperty('--toss-transform');
+  centerCardEl.textContent = item;
+  centerCardEl.classList.remove('enter');
+  void centerCardEl.offsetWidth;
+  centerCardEl.classList.add('enter');
+
+  // Render baskets
+  renderBaskets();
+
+  wrongAttempts = 0;
+  state = 'playing';
+  statusEl.textContent = 'לאיזו קבוצה הפריט שייך?';
+  updateInfo();
+  resetInactivity();
+  requestAnimationFrame(layoutGame);
+}
+
+function renderBaskets() {
+  basketsEl.innerHTML = '';
+  currentButtonCategories.forEach((cat, idx) => {
+    const btn = document.createElement('button');
+    btn.className = 'basket';
+    btn.innerHTML = `<div class="basket-emoji">🧺</div><div class="basket-name">${cat.name}</div>`;
+    btn.addEventListener('click', () => onChoice(idx, btn));
+    basketsEl.appendChild(btn);
+  });
+}
+
+function onChoice(idx, btnEl) {
+  if (state !== 'playing') return;
+  getAudio();
+  resetInactivity();
+
+  if (idx === correctCategoryIdx) {
+    onCorrect(btnEl);
+  } else {
+    onWrong(btnEl);
+  }
+}
+
+function onCorrect(btnEl) {
+  state = 'result';
+  document.querySelectorAll('.basket').forEach(el => el.classList.add('locked'));
+  btnEl.classList.add('correct');
+  playSuccess();
+  statusEl.textContent = 'נכון!';
+
+  // Calculate toss-to-basket animation (card flies to the basket)
+  const cardRect = centerCardEl.getBoundingClientRect();
+  const basketRect = btnEl.getBoundingClientRect();
+  const dx = (basketRect.left + basketRect.width / 2) - (cardRect.left + cardRect.width / 2);
+  const dy = (basketRect.top + basketRect.height / 2) - (cardRect.top + cardRect.height / 2);
+  centerCardEl.style.setProperty('--toss-transform',
+    `translate(${dx}px, ${dy}px) rotate(540deg) scale(0.12)`);
+  centerCardEl.classList.add('tossing');
+
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (wrongAttempts === 0) {
+    successCount++;
+    missStreak = 0;
+  }
+  if (isLast) lastLevelScore++;
+  updateInfo();
+
+  setTimeout(() => {
+    if (!isLast && successCount >= SUCCESSES_TO_ADVANCE) {
+      showLevelUp();
+    } else if (descendQueued && levelIdx > 0) {
+      levelIdx--;
+      successCount = 0;
+      missStreak = 0;
+      descendQueued = false;
+      startRound();
+    } else {
+      startRound();
+    }
+  }, ROUND_END_DELAY_MS);
+}
+
+function onWrong(btnEl) {
+  btnEl.classList.add('wrong');
+  playError();
+  if (wrongAttempts === 0) {
+    missStreak++;
+    successCount = 0;
+    if (missStreak >= MISSES_TO_DESCEND && levelIdx > 0) {
+      descendQueued = true;
+      missStreak = 0;
+    }
+  }
+  wrongAttempts++;
+  setTimeout(() => { btnEl.classList.remove('wrong'); }, 550);
+}
+
+function showLevelUp() {
+  modalEmoji.textContent = '🌟';
+  modalTitle.textContent = 'רמה חדשה!';
+  modalText.textContent = `עולים ל-${LEVELS[levelIdx + 1].numButtons} קבוצות`;
+  modalBtn.textContent = 'המשך';
+  modalBtn.onclick = () => {
+    overlay.classList.remove('show');
+    levelIdx++;
+    successCount = 0;
+    missStreak = 0;
+    startRound();
+  };
+  overlay.classList.add('show');
+  playLevelUp();
+}
+
+function updateInfo() {
+  levelNumEl.textContent = levelIdx + 1;
+  const isLast = levelIdx === LEVELS.length - 1;
+  if (isLast) {
+    progressLabelEl.textContent = 'ניקוד:';
+    progressNumEl.textContent = lastLevelScore;
+  } else {
+    progressLabelEl.textContent = 'נכונים:';
+    progressNumEl.textContent = `${successCount}/${SUCCESSES_TO_ADVANCE}`;
+  }
+}
+
+// --- Inactivity ---
+function resetInactivity() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(showInactivityDialog, INACTIVITY_MS);
+}
+function showInactivityDialog() {
+  if (state !== 'playing') return;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>12 שניות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  let to;
+  const cleanup = (choice) => {
+    if (to) { clearTimeout(to); to = null; }
+    if (o.parentNode) o.remove();
+    if (choice === 'yes') { state = 'playing'; resetInactivity(); }
+    else endGame();
+  };
+  o.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  o.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+  document.body.appendChild(o);
+}
+
+// --- Reset / End ---
+btnReset.addEventListener('click', () => {
+  getAudio();
+  overlay.classList.remove('show');
+  levelIdx = 0;
+  successCount = 0;
+  missStreak = 0;
+  lastLevelScore = 0;
+  recentItems = [];
+  descendQueued = false;
+  startRound();
+});
+
+function confirmEndGame() {
+  clearTimeout(inactivityTimer);
+  const prev = state;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  o.querySelector('.yes').addEventListener('click', () => { o.remove(); endGame(); });
+  o.querySelector('.no').addEventListener('click', () => {
+    o.remove();
+    state = prev;
+    resetInactivity();
+  });
+  document.body.appendChild(o);
+}
+function endGame() {
+  clearTimeout(inactivityTimer);
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+btnEnd.addEventListener('click', confirmEndGame);
+
+window.addEventListener('resize', layoutGame);
+
+startRound();
+</script>
+</body>
+</html>

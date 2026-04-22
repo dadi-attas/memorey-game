@@ -1,0 +1,803 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>העכבר והגבינה</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🐭</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff; user-select: none; touch-action: manipulation;
+  }
+  #app { height: 100vh; width: 100vw; display: flex; flex-direction: column; padding: 10px; gap: 6px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: 0 0 auto; height: 54px; }
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff; padding: 10px 18px;
+    font-size: 16px; font-weight: 700;
+    border-radius: 12px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.94); }
+  .info {
+    flex: 1 1 auto; display: flex; justify-content: center; align-items: center;
+    gap: 22px; font-size: 18px; font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .counter {
+    padding: 6px 14px; border-radius: 12px; display: inline-flex; align-items: center; gap: 6px;
+    border: 2px solid rgba(255,255,255,0.5);
+    transition: transform 0.1s;
+  }
+  .counter.ok  { background: linear-gradient(135deg,#7dd87d 0%,#3fa83f 100%); }
+  .counter.err { background: linear-gradient(135deg,#ff8a8a 0%,#e55b5b 100%); }
+  .counter b { font-size: 22px; }
+  .counter.bump { animation: counterBump 0.38s ease; }
+  @keyframes counterBump {
+    0%,100% { transform: scale(1) rotate(0); }
+    25%     { transform: scale(1.16) rotate(-3deg); }
+    60%     { transform: scale(1.1) rotate(3deg); }
+  }
+
+  #status {
+    text-align: center; flex: 0 0 auto; min-height: 26px;
+    font-size: 18px; font-weight: 700;
+    color: #ffd86b;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+  }
+
+  #maze-wrap {
+    flex: 1 1 auto;
+    min-height: 0; min-width: 0;
+    position: relative;
+    overflow: hidden;
+    border-radius: 14px;
+    background: linear-gradient(180deg, #294c87 0%, #1e3c72 100%);
+    box-shadow: inset 0 3px 12px rgba(0,0,0,0.35);
+  }
+  #maze-svg {
+    width: 100%; height: 100%;
+    display: block;
+    touch-action: none;
+  }
+
+  .maze-border  { stroke: #6b4016; }
+  .maze-corridor{ stroke: #fff1cf; }
+  .maze-trail   { stroke: #7dd87d; }
+
+  #entry-btn {
+    fill: #7dd87d;
+    stroke: #fff;
+    stroke-width: 5;
+    cursor: pointer;
+    animation: entryPulse 1.5s ease-in-out infinite;
+  }
+  @keyframes entryPulse {
+    0%,100% { filter: drop-shadow(0 0 5px rgba(125,216,125,0.5)); }
+    50%     { filter: drop-shadow(0 0 25px rgba(125,216,125,1)); }
+  }
+  #entry-btn.active { animation: none; fill: #aaa; }
+  #entry-btn.gone, .entry-hint.gone {
+    opacity: 0;
+    transition: opacity 0.35s ease-out;
+    pointer-events: none;
+  }
+
+  #mouse-emoji.ready-blink {
+    animation: readyBlink 0.5s ease-in-out 2;
+    transform-box: fill-box;
+    transform-origin: center;
+    filter: drop-shadow(0 0 14px rgba(255,216,107,1));
+  }
+  @keyframes readyBlink {
+    0%,100% { font-size: 42px; }
+    50%     { font-size: 58px; }
+  }
+
+  #sub-status {
+    text-align: center;
+    flex: 0 0 auto;
+    min-height: 30px;
+    font-size: 24px;
+    font-weight: 900;
+    color: #ffd86b;
+    text-shadow: 0 0 14px rgba(255,216,107,0.7), 0 2px 4px rgba(0,0,0,0.55);
+    letter-spacing: 3px;
+    opacity: 0;
+    transition: opacity 0.25s;
+  }
+  #sub-status.show {
+    opacity: 1;
+    animation: subStatusPop 0.5s ease;
+  }
+  @keyframes subStatusPop {
+    0%   { transform: scale(0.55); }
+    60%  { transform: scale(1.18); }
+    100% { transform: scale(1); }
+  }
+
+  #cheese-end { font-size: 56px; }
+  #cheese-end.eaten { animation: eatCheese 1.2s ease forwards; }
+  @keyframes eatCheese {
+    0%   { font-size: 56px; opacity: 1; }
+    25%  { font-size: 48px; }
+    50%  { font-size: 36px; }
+    75%  { font-size: 22px; opacity: 0.9; }
+    100% { font-size: 0;  opacity: 0; }
+  }
+
+  #mouse-emoji { font-size: 42px; transition: transform 0.4s ease; }
+  #mouse-emoji.happy::before { content: '😋'; }
+
+  .success-glow #maze-path-corridor { animation: winGlow 1.3s ease; }
+  @keyframes winGlow {
+    0%,100% { filter: drop-shadow(0 0 0 rgba(125,216,125,0)); }
+    50%     { filter: drop-shadow(0 0 28px rgba(125,216,125,1)); }
+  }
+
+  /* End-game dialog & goodbye */
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal p { font-size: 15px; margin-bottom: 14px; opacity: 0.9; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס</button>
+    <div class="info">
+      <span class="counter ok"  id="counter-ok"><span>🧀</span><b id="score">0</b></span>
+      <span class="counter err" id="counter-err"><span>💥</span><b id="errors">0</b></span>
+    </div>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="status">גע בעיגול הירוק וגרור את העכבר אל הגבינה</div>
+  <div id="sub-status"></div>
+  <div id="maze-wrap">
+    <svg id="maze-svg" preserveAspectRatio="none"></svg>
+  </div>
+</div>
+
+<script>
+const SVG_NS = 'http://www.w3.org/2000/svg';
+const LEVELS = [
+  { pathWidth: 120, tolerance: 140, turns: 1, winding: 0.14 },
+  { pathWidth: 105, tolerance: 125, turns: 2, winding: 0.20 },
+  { pathWidth: 90,  tolerance: 110, turns: 3, winding: 0.26 },
+  { pathWidth: 78,  tolerance: 98,  turns: 4, winding: 0.30 },
+  { pathWidth: 66,  tolerance: 86,  turns: 5, winding: 0.34 },
+  { pathWidth: 55,  tolerance: 75,  turns: 6, winding: 0.38 },
+];
+
+const SUCCESSES_TO_ADVANCE = 3;
+const MISSES_TO_DESCEND = 5;
+const INACTIVITY_MS = 12000;
+const AUTO_END_MS = 10000;
+const MAX_FORWARD_JUMP = 0.08;  // max advance along path per frame (prevents shortcuts)
+const ENTRY_HIT_RADIUS = 55;
+const SUCCESS_T = 0.985;
+const MOUSE_FOLLOW_OFFSET = 90;    // pixels the mouse trails behind finger along path
+const TOLERANCE_DIVISOR = 1.6;     // generous hit-area (finger forgiveness)
+const OUT_OF_TOLERANCE_FRAMES = 2; // require N consecutive out-of-bounds frames to fail
+const PATH_SAMPLES = 500;          // higher = better precision on tight curves
+const START_SEQUENCE_MS = 1100;    // duration of "ready to go" animation
+
+const svg = document.getElementById('maze-svg');
+const mazeWrap = document.getElementById('maze-wrap');
+const statusEl = document.getElementById('status');
+const scoreEl = document.getElementById('score');
+const errorsEl = document.getElementById('errors');
+const counterOk = document.getElementById('counter-ok');
+const counterErr = document.getElementById('counter-err');
+const btnReset = document.getElementById('btn-reset');
+const btnEnd = document.getElementById('btn-end');
+
+let levelIdx = 0;
+let successesAtLevel = 0;
+let missStreak = 0;
+let score = 0;
+let errors = 0;
+let state = 'idle';  // 'idle' | 'starting' | 'playing' | 'success' | 'fail' | 'paused'
+let maze = null;     // { entry, exit, borderPath, corridorPath, trailPath, samples, totalLen }
+let currentT = 0;
+let pointerId = null;
+let inactivityTimer = null;
+let startTimer = null;
+let successTimer = null;
+let outOfToleranceCount = 0;
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function rand(a, b) { return a + Math.random() * (b - a); }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+
+// --- Audio ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.15, startOffset = 0, freqEnd = null }) {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  const t0 = ac.currentTime + startOffset;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function playSuccess() {
+  [523.25, 659.25, 783.99].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.14, volume: 0.18, startOffset: i * 0.1 });
+  });
+}
+function playError() { tone({ freq: 260, freqEnd: 150, type: 'sawtooth', duration: 0.3, volume: 0.13 }); }
+
+// Two short high-pitched "pip pip" chirps — sounds like a mouse squeaking.
+function playStartPips() {
+  const ac = getAudio();
+  if (!ac) return;
+  [0, 0.17].forEach((offset) => {
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.type = 'square';
+    const t0 = ac.currentTime + offset;
+    osc.frequency.setValueAtTime(1250, t0);
+    osc.frequency.exponentialRampToValueAtTime(1650, t0 + 0.05);
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(0.1, t0 + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.09);
+    osc.connect(gain).connect(ac.destination);
+    osc.start(t0);
+    osc.stop(t0 + 0.11);
+  });
+}
+
+function playLevelUp() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.2, volume: 0.2, startOffset: i * 0.12 });
+  });
+}
+
+function bumpCounter(el) { el.classList.remove('bump'); void el.offsetWidth; el.classList.add('bump'); }
+
+// --- Maze generation ---
+function generateMaze(levelConfig, w, h) {
+  const { turns, winding } = levelConfig;
+  const margin = levelConfig.pathWidth / 2 + 40;
+  // Pick entry and exit on different edges
+  const edges = ['top', 'right', 'bottom', 'left'];
+  const entryEdge = pick(edges);
+  const exitEdge = pick(edges.filter(e => e !== entryEdge && e !== opposite(entryEdge)));
+  const entry = pointOnEdge(entryEdge, w, h, margin);
+  const exit = pointOnEdge(exitEdge, w, h, margin);
+
+  // Build middle control points with alternating zigzag
+  const dx = exit.x - entry.x, dy = exit.y - entry.y;
+  const len = Math.sqrt(dx*dx + dy*dy);
+  const perpX = -dy / len, perpY = dx / len;
+  const base = Math.min(w, h);
+  const windAmp = winding * base;
+  const middle = [];
+  for (let i = 1; i <= turns; i++) {
+    const t = i / (turns + 1);
+    const bx = entry.x + dx * t;
+    const by = entry.y + dy * t;
+    const sign = (i % 2 === 0) ? 1 : -1;
+    const amp = sign * windAmp * (0.7 + Math.random() * 0.5);
+    let px = bx + perpX * amp;
+    let py = by + perpY * amp;
+    // Clamp inside margins
+    px = clamp(px, margin, w - margin);
+    py = clamp(py, margin, h - margin);
+    middle.push({ x: px, y: py });
+  }
+  const pts = [entry, ...middle, exit];
+  return { entry, exit, entryEdge, exitEdge, points: pts };
+}
+
+function opposite(edge) {
+  return ({ top: 'bottom', bottom: 'top', left: 'right', right: 'left' })[edge];
+}
+
+function pointOnEdge(edge, w, h, margin) {
+  const m = margin;
+  switch (edge) {
+    case 'top':    return { x: rand(w * 0.2, w * 0.8), y: m };
+    case 'bottom': return { x: rand(w * 0.2, w * 0.8), y: h - m };
+    case 'left':   return { x: m, y: rand(h * 0.2, h * 0.8) };
+    case 'right':  return { x: w - m, y: rand(h * 0.2, h * 0.8) };
+  }
+}
+
+function buildBezierPath(pts) {
+  if (pts.length < 2) return '';
+  let d = `M ${pts[0].x} ${pts[0].y}`;
+  const tension = 0.5;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const p0 = pts[Math.max(0, i - 1)];
+    const p1 = pts[i];
+    const p2 = pts[i + 1];
+    const p3 = pts[Math.min(pts.length - 1, i + 2)];
+    const cp1x = p1.x + (p2.x - p0.x) * tension / 3;
+    const cp1y = p1.y + (p2.y - p0.y) * tension / 3;
+    const cp2x = p2.x - (p3.x - p1.x) * tension / 3;
+    const cp2y = p2.y - (p3.y - p1.y) * tension / 3;
+    d += ` C ${cp1x} ${cp1y} ${cp2x} ${cp2y} ${p2.x} ${p2.y}`;
+  }
+  return d;
+}
+
+// --- Rendering ---
+function renderMaze() {
+  const w = svg.clientWidth;
+  const h = svg.clientHeight;
+  if (w === 0 || h === 0) return;
+  svg.setAttribute('viewBox', `0 0 ${w} ${h}`);
+  svg.innerHTML = '';
+
+  const cfg = LEVELS[levelIdx];
+  const m = generateMaze(cfg, w, h);
+  const d = buildBezierPath(m.points);
+
+  // Border path (outer)
+  const border = document.createElementNS(SVG_NS, 'path');
+  border.setAttribute('d', d);
+  border.setAttribute('fill', 'none');
+  border.setAttribute('stroke', '#6b4016');
+  border.setAttribute('stroke-width', cfg.pathWidth + 14);
+  border.setAttribute('stroke-linecap', 'round');
+  border.setAttribute('stroke-linejoin', 'round');
+  border.classList.add('maze-border');
+  svg.appendChild(border);
+
+  // Corridor (inner)
+  const corridor = document.createElementNS(SVG_NS, 'path');
+  corridor.setAttribute('id', 'maze-path-corridor');
+  corridor.setAttribute('d', d);
+  corridor.setAttribute('fill', 'none');
+  corridor.setAttribute('stroke', '#fff1cf');
+  corridor.setAttribute('stroke-width', cfg.pathWidth);
+  corridor.setAttribute('stroke-linecap', 'round');
+  corridor.setAttribute('stroke-linejoin', 'round');
+  corridor.classList.add('maze-corridor');
+  svg.appendChild(corridor);
+
+  // Trail (progress indicator, dashed offset animated)
+  const totalLen = corridor.getTotalLength();
+  const trail = document.createElementNS(SVG_NS, 'path');
+  trail.setAttribute('id', 'maze-trail');
+  trail.setAttribute('d', d);
+  trail.setAttribute('fill', 'none');
+  trail.setAttribute('stroke', '#7dd87d');
+  trail.setAttribute('stroke-width', Math.max(20, cfg.pathWidth * 0.45));
+  trail.setAttribute('stroke-linecap', 'round');
+  trail.setAttribute('stroke-linejoin', 'round');
+  trail.setAttribute('stroke-dasharray', totalLen);
+  trail.setAttribute('stroke-dashoffset', totalLen);
+  trail.setAttribute('opacity', '0.8');
+  trail.classList.add('maze-trail');
+  svg.appendChild(trail);
+
+  // Entry button (green circle with a finger hint)
+  const entryBtn = document.createElementNS(SVG_NS, 'circle');
+  entryBtn.setAttribute('id', 'entry-btn');
+  entryBtn.setAttribute('cx', m.entry.x);
+  entryBtn.setAttribute('cy', m.entry.y);
+  entryBtn.setAttribute('r', 42);
+  svg.appendChild(entryBtn);
+
+  const entryHint = document.createElementNS(SVG_NS, 'text');
+  entryHint.setAttribute('class', 'entry-hint');
+  entryHint.setAttribute('x', m.entry.x);
+  entryHint.setAttribute('y', m.entry.y);
+  entryHint.setAttribute('text-anchor', 'middle');
+  entryHint.setAttribute('dominant-baseline', 'central');
+  entryHint.setAttribute('font-size', 32);
+  entryHint.setAttribute('pointer-events', 'none');
+  entryHint.textContent = '👆';
+  svg.appendChild(entryHint);
+
+  // Cheese at exit
+  const cheese = document.createElementNS(SVG_NS, 'text');
+  cheese.setAttribute('id', 'cheese-end');
+  cheese.setAttribute('x', m.exit.x);
+  cheese.setAttribute('y', m.exit.y);
+  cheese.setAttribute('text-anchor', 'middle');
+  cheese.setAttribute('dominant-baseline', 'central');
+  cheese.setAttribute('pointer-events', 'none');
+  cheese.textContent = '🧀';
+  svg.appendChild(cheese);
+
+  // Mouse starts outside the entry, on the outward side
+  const mousePos = mouseStartPos(m, 70);
+  const mouse = document.createElementNS(SVG_NS, 'text');
+  mouse.setAttribute('id', 'mouse-emoji');
+  mouse.setAttribute('x', mousePos.x);
+  mouse.setAttribute('y', mousePos.y);
+  mouse.setAttribute('text-anchor', 'middle');
+  mouse.setAttribute('dominant-baseline', 'central');
+  mouse.setAttribute('font-size', 42);
+  mouse.setAttribute('pointer-events', 'none');
+  mouse.textContent = '🐭';
+  svg.appendChild(mouse);
+
+  maze = {
+    entry: m.entry, exit: m.exit,
+    corridorPath: corridor,
+    trailPath: trail,
+    totalLen,
+    cheeseEl: cheese,
+    mouseEl: mouse,
+    entryBtnEl: entryBtn,
+    entryHintEl: entryHint,
+    mouseOutsidePos: mousePos,
+    samples: samplePath(corridor, PATH_SAMPLES),
+    tolerance: cfg.tolerance,
+  };
+
+  currentT = 0;
+  state = 'idle';
+  statusEl.textContent = 'גע בעיגול הירוק וגרור את העכבר אל הגבינה';
+}
+
+function mouseStartPos(m, dist) {
+  // outward direction relative to entry edge
+  let nx = 0, ny = 0;
+  switch (m.entryEdge) {
+    case 'top':    ny = -1; break;
+    case 'bottom': ny = 1;  break;
+    case 'left':   nx = -1; break;
+    case 'right':  nx = 1;  break;
+  }
+  return { x: m.entry.x + nx * dist, y: m.entry.y + ny * dist };
+}
+
+// --- Path sampling ---
+function samplePath(pathEl, n) {
+  const len = pathEl.getTotalLength();
+  const pts = [];
+  for (let i = 0; i <= n; i++) {
+    const t = i / n;
+    const p = pathEl.getPointAtLength(len * t);
+    pts.push({ x: p.x, y: p.y, t });
+  }
+  return pts;
+}
+
+function closestOnPath(samples, x, y) {
+  let best = Infinity, bestT = 0;
+  for (const s of samples) {
+    const dx = s.x - x, dy = s.y - y;
+    const d = dx*dx + dy*dy;
+    if (d < best) { best = d; bestT = s.t; }
+  }
+  return { t: bestT, dist: Math.sqrt(best) };
+}
+
+// --- Pointer events ---
+function toSvgCoords(evt) {
+  const pt = svg.createSVGPoint();
+  pt.x = evt.clientX;
+  pt.y = evt.clientY;
+  const ctm = svg.getScreenCTM();
+  if (!ctm) return { x: 0, y: 0 };
+  const p = pt.matrixTransform(ctm.inverse());
+  return { x: p.x, y: p.y };
+}
+
+const subStatusEl = document.getElementById('sub-status');
+function showStartMessage() {
+  subStatusEl.textContent = 'צא לדרך!';
+  subStatusEl.classList.remove('show');
+  void subStatusEl.offsetWidth;
+  subStatusEl.classList.add('show');
+}
+function hideStartMessage() {
+  subStatusEl.classList.remove('show');
+  subStatusEl.textContent = '';
+}
+
+svg.addEventListener('pointerdown', (e) => {
+  if (state !== 'idle') return;
+  const { x, y } = toSvgCoords(e);
+  const ex = maze.entry.x, ey = maze.entry.y;
+  const d = Math.hypot(x - ex, y - ey);
+  if (d > ENTRY_HIT_RADIUS) return;
+  getAudio();
+  pointerId = e.pointerId;
+  try { svg.setPointerCapture(e.pointerId); } catch (_) {}
+  state = 'starting';
+  currentT = 0;
+  outOfToleranceCount = 0;
+  maze.entryBtnEl.classList.add('active');
+  maze.mouseEl.classList.add('ready-blink');
+  showStartMessage();
+  playStartPips();
+  statusEl.textContent = 'צא לדרך!';
+  resetInactivity();
+
+  clearTimeout(startTimer);
+  startTimer = setTimeout(() => {
+    if (state !== 'starting') return;
+    state = 'playing';
+    maze.mouseEl.classList.remove('ready-blink');
+    hideStartMessage();
+    // Fade out the entry button so the trail becomes visible at path start
+    maze.entryBtnEl.classList.add('gone');
+    maze.entryHintEl.classList.add('gone');
+    statusEl.textContent = 'גרור את העכבר בתוך המסלול';
+  }, START_SEQUENCE_MS);
+});
+
+svg.addEventListener('pointermove', (e) => {
+  if (state !== 'playing' || e.pointerId !== pointerId) return;
+  resetInactivity();
+  const { x, y } = toSvgCoords(e);
+  const c = closestOnPath(maze.samples, x, y);
+
+  if (c.dist > maze.tolerance / TOLERANCE_DIVISOR) {
+    outOfToleranceCount++;
+    if (outOfToleranceCount >= OUT_OF_TOLERANCE_FRAMES) onFail();
+    return;
+  }
+  outOfToleranceCount = 0;
+
+  // Monotonic progress — finger can only advance forward along the path.
+  // (No "max jump" penalty: touch is continuous, and the distance-from-path
+  //  check already catches off-path cheating, so extra penalties create
+  //  false failures after the start sequence.)
+  currentT = Math.max(currentT, c.t);
+  updateProgress();
+
+  if (currentT >= SUCCESS_T) onSuccess();
+});
+
+svg.addEventListener('pointerup', (e) => {
+  // If user lifts finger during the "starting" sequence, quietly reset to idle (no fail).
+  if (state === 'starting' && e.pointerId === pointerId) {
+    clearTimeout(startTimer);
+    state = 'idle';
+    maze.mouseEl.classList.remove('ready-blink');
+    hideStartMessage();
+    maze.entryBtnEl.classList.remove('active');
+    try { svg.releasePointerCapture(pointerId); } catch(_) {}
+    pointerId = null;
+    return;
+  }
+  // Finger lifted after reaching the cheese — NOW trigger the eating animation.
+  if (state === 'success' && e.pointerId === pointerId) {
+    try { svg.releasePointerCapture(pointerId); } catch(_) {}
+    pointerId = null;
+    triggerCheeseEating();
+    return;
+  }
+  if (state !== 'playing' || e.pointerId !== pointerId) return;
+  onFail();
+});
+svg.addEventListener('pointercancel', (e) => {
+  if (state === 'starting' && e.pointerId === pointerId) {
+    clearTimeout(startTimer);
+    state = 'idle';
+    maze.mouseEl.classList.remove('ready-blink');
+    hideStartMessage();
+    maze.entryBtnEl.classList.remove('active');
+    pointerId = null;
+    return;
+  }
+  if (state === 'playing' && e.pointerId === pointerId) onFail();
+});
+
+function updateProgress() {
+  // Trail: grow along path — this makes the trail track the finger INSTANTLY
+  maze.trailPath.setAttribute('stroke-dashoffset', maze.totalLen * (1 - currentT));
+  // Mouse: target is MOUSE_FOLLOW_OFFSET behind finger, but mouse lerps toward it
+  // so it glides smoothly from its "outside" starting position onto the path,
+  // then catches up to maintain the offset once the finger has advanced.
+  const targetLen = Math.max(0, maze.totalLen * currentT - MOUSE_FOLLOW_OFFSET);
+  const target = maze.corridorPath.getPointAtLength(targetLen);
+  const curX = parseFloat(maze.mouseEl.getAttribute('x')) || target.x;
+  const curY = parseFloat(maze.mouseEl.getAttribute('y')) || target.y;
+  const LERP = 0.35;
+  const nx = curX + (target.x - curX) * LERP;
+  const ny = curY + (target.y - curY) * LERP;
+  maze.mouseEl.setAttribute('x', nx);
+  maze.mouseEl.setAttribute('y', ny);
+}
+
+function onSuccess() {
+  state = 'success';
+  score++;
+  successesAtLevel++;
+  missStreak = 0;
+  scoreEl.textContent = score;
+  bumpCounter(counterOk);
+  playSuccess();
+  statusEl.textContent = 'העכבר הגיע לגבינה! הרם את האצבע';
+  // Move mouse onto cheese
+  maze.mouseEl.setAttribute('x', maze.exit.x - 18);
+  maze.mouseEl.setAttribute('y', maze.exit.y);
+  svg.classList.add('success-glow');
+  // Cheese does NOT start disappearing yet — we wait for the user to lift finger.
+  // Fallback: if user keeps finger down for too long, auto-proceed after 5 seconds.
+  clearTimeout(successTimer);
+  successTimer = setTimeout(triggerCheeseEating, 5000);
+}
+
+function triggerCheeseEating() {
+  if (state !== 'success') return;
+  state = 'eating';
+  clearTimeout(successTimer);
+  svg.classList.remove('success-glow');
+  statusEl.textContent = 'העכבר אוכל את הגבינה...';
+  maze.cheeseEl.classList.add('eaten');
+
+  const isLast = levelIdx === LEVELS.length - 1;
+  setTimeout(() => {
+    if (!isLast && successesAtLevel >= SUCCESSES_TO_ADVANCE) {
+      levelIdx++;
+      successesAtLevel = 0;
+      playLevelUp();
+      statusEl.textContent = 'מעולה! מבוך חדש ויותר מאתגר';
+    }
+    renderMaze();
+  }, 1400);
+}
+
+function onFail() {
+  state = 'fail';
+  errors++;
+  missStreak++;
+  errorsEl.textContent = errors;
+  bumpCounter(counterErr);
+  playError();
+  statusEl.textContent = 'העכבר יצא מהמסלול, ננסה שוב';
+  // Fade out trail
+  maze.trailPath.setAttribute('stroke', '#ff7a7a');
+  // Reset mouse to start position (outside)
+  maze.mouseEl.setAttribute('x', maze.mouseOutsidePos.x);
+  maze.mouseEl.setAttribute('y', maze.mouseOutsidePos.y);
+  maze.entryBtnEl.classList.remove('active');
+
+  try { svg.releasePointerCapture(pointerId); } catch (_) {}
+  pointerId = null;
+
+  setTimeout(() => {
+    if (missStreak >= MISSES_TO_DESCEND && levelIdx > 0) {
+      levelIdx--;
+      successesAtLevel = 0;
+      missStreak = 0;
+    }
+    renderMaze();
+  }, 900);
+}
+
+// --- Inactivity ---
+function resetInactivity() {
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(showInactivityDialog, INACTIVITY_MS);
+}
+function showInactivityDialog() {
+  if (state !== 'idle' && state !== 'playing') return;
+  const prev = state;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>12 שניות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  let to;
+  const cleanup = (choice) => {
+    if (to) { clearTimeout(to); to = null; }
+    if (o.parentNode) o.remove();
+    if (choice === 'yes') {
+      state = prev === 'playing' ? 'idle' : prev;
+      renderMaze();
+      resetInactivity();
+    } else {
+      endGame();
+    }
+  };
+  o.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  o.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+  document.body.appendChild(o);
+}
+
+// --- Reset / End ---
+btnReset.addEventListener('click', () => {
+  getAudio();
+  levelIdx = 0;
+  successesAtLevel = 0;
+  missStreak = 0;
+  score = 0;
+  errors = 0;
+  scoreEl.textContent = 0;
+  errorsEl.textContent = 0;
+  renderMaze();
+  resetInactivity();
+});
+function confirmEndGame() {
+  clearTimeout(inactivityTimer);
+  const prev = state;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  o.querySelector('.yes').addEventListener('click', () => { o.remove(); endGame(); });
+  o.querySelector('.no').addEventListener('click', () => {
+    o.remove();
+    state = prev;
+    resetInactivity();
+  });
+  document.body.appendChild(o);
+}
+function endGame() {
+  clearTimeout(inactivityTimer);
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+btnEnd.addEventListener('click', confirmEndGame);
+
+let resizeTO = null;
+window.addEventListener('resize', () => {
+  clearTimeout(resizeTO);
+  resizeTO = setTimeout(renderMaze, 200);
+});
+
+// Start
+requestAnimationFrame(() => {
+  renderMaze();
+  resetInactivity();
+});
+</script>
+</body>
+</html>
