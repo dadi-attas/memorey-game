@@ -213,12 +213,10 @@
   document.getElementById('exit-no').addEventListener('click', () => overlay.classList.remove('show'));
   document.getElementById('exit-yes').addEventListener('click', () => {
     overlay.classList.remove('show');
-    document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
-    setTimeout(() => {
-      try { window.close(); } catch(_) {}
-      // On Android PWA, window.close won't work; go blank as fallback.
-      try { location.href = 'about:blank'; } catch(_) {}
-    }, 1500);
+    document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div><div class="text" style="font-size:24px;opacity:0.85;margin-top:18px;">אפשר לסגור את החלון</div></div>';
+    // Attempt to close (works only if opened via script — not on installed PWA),
+    // otherwise stay on the goodbye screen so the user can close the window themselves.
+    setTimeout(() => { try { window.close(); } catch(_) {} }, 1500);
   });
 
   // Register service worker for offline use (optional, only works over http(s))
