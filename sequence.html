@@ -270,7 +270,7 @@ const GROUPS_4 = [
 
 const SUCCESSES_TO_ADVANCE = 3;
 const MISSES_TO_DESCEND = 5;
-const INACTIVITY_MS = 12000;
+const INACTIVITY_MS = 120000;
 const AUTO_END_MS = 10000;
 const CORRECT_DELAY_MS = 1300;
 const WRONG_RESET_MS = 700;
@@ -472,19 +472,12 @@ function onChoice(emoji, btnEl) {
 }
 
 function showLevelUp() {
-  modalEmoji.textContent = '🌟';
-  modalTitle.textContent = 'רמה חדשה!';
-  modalText.textContent = `עולים לרמה ${levelIdx + 2}`;
-  modalBtn.textContent = 'המשך';
-  modalBtn.onclick = () => {
-    overlay.classList.remove('show');
-    levelIdx++;
-    successCount = 0;
-    missStreak = 0;
-    startRound();
-  };
-  overlay.classList.add('show');
+  // Silent advance — sound only, no modal
+  levelIdx++;
+  successCount = 0;
+  missStreak = 0;
   playLevelUp();
+  startRound();
 }
 
 function updateInfo() {
@@ -509,7 +502,7 @@ function showInactivityDialog() {
   state = 'paused';
   const o = document.createElement('div');
   o.className = 'end-overlay';
-  o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>12 שניות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>2 דקות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
   let to;
   const cleanup = (choice) => {
     if (to) { clearTimeout(to); to = null; }

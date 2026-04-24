@@ -294,7 +294,7 @@ const PAIRS = [
 
 const SUCCESSES_TO_ADVANCE = 3;
 const MISSES_TO_DESCEND = 3;
-const INACTIVITY_MS = 12000;
+const INACTIVITY_MS = 120000;
 const CHECK_DELAY_MS = 550;
 const MATCH_FADE_MS = 700;
 const MISMATCH_RESET_MS = 850;
@@ -543,19 +543,12 @@ function onBoardComplete() {
 }
 
 function showLevelUp() {
-  modalEmoji.textContent = '🌟';
-  modalTitle.textContent = 'רמה חדשה!';
-  modalText.textContent = `עולים ל-${LEVELS[levelIdx + 1].pairs} זוגות`;
-  modalBtn.textContent = 'המשך';
-  modalBtn.onclick = () => {
-    overlay.classList.remove('show');
-    levelIdx++;
-    successesAtLevel = 0;
-    missStreak = 0;
-    startRound();
-  };
-  overlay.classList.add('show');
+  // Silent advance — sound only, no modal
+  levelIdx++;
+  successesAtLevel = 0;
+  missStreak = 0;
   playLevelUp();
+  startRound();
 }
 
 function descendLevel() {
@@ -590,7 +583,7 @@ function resetInactivity() {
 function showInactivityDialog() {
   const overlayEl = document.createElement('div');
   overlayEl.className = 'end-overlay';
-  overlayEl.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>12 שניות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  overlayEl.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>2 דקות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
   let to;
   const cleanup = (choice) => {
     if (to) { clearTimeout(to); to = null; }

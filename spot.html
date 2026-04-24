@@ -230,6 +230,7 @@ const FLIP_MS = 500;
 const FACEDOWN_MS = 1000;
 const RESULT_MS = 1100;
 const SUCCESSES_TO_ADVANCE = 3;
+const MISSES_TO_DESCEND = 5;
 
 const boardEl = document.getElementById('board');
 const boardWrap = document.getElementById('board-wrap');
@@ -246,6 +247,7 @@ const modalEmoji = document.getElementById('modal-emoji');
 
 let levelIdx = 0;
 let successCount = 0;
+let missStreak = 0;
 let state = 'idle';
 let cards = [];          // array of { el, front, back }
 let currentEmojis = [];
@@ -423,6 +425,7 @@ function onCardClick(idx) {
     cards[idx].el.classList.add('correct');
     playSuccess();
     successCount++;
+    missStreak = 0;
     updateInfo();
     if (successCount >= SUCCESSES_TO_ADVANCE) {
       setTimeout(advanceLevel, RESULT_MS);
@@ -437,36 +440,30 @@ function onCardClick(idx) {
     cards[idx].el.classList.add('wrong');
     cards[changedIdx].el.classList.add('correct');
     playError();
+    missStreak++;
     statusEl.textContent = 'טעית, מנסים שוב';
     setTimeout(() => {
       cards[idx].el.classList.remove('wrong');
       cards[changedIdx].el.classList.remove('correct');
+      // Silent level-down after consecutive misses
+      if (missStreak >= MISSES_TO_DESCEND && levelIdx > 0) {
+        levelIdx--;
+        successCount = 0;
+        missStreak = 0;
+      }
       startRound();
     }, RESULT_MS + 400);
   }
 }
 
 function advanceLevel() {
+  // Silent advance — sound only, no modal. Last level stays and resets counter.
   const isLast = levelIdx === LEVELS.length - 1;
-  if (isLast) {
-    modalEmoji.textContent = '🏆';
-    modalTitle.textContent = 'סיימת את כל הרמות!';
-    modalText.textContent = `עברת בהצלחה את כל 10 הרמות, עד 12 קלפים`;
-    modalBtn.textContent = 'התחל מחדש';
-    modalBtn.dataset.action = 'restart';
-    playLevelUp();
-    overlay.classList.add('show');
-    state = 'done';
-  } else {
-    modalEmoji.textContent = '⭐';
-    modalTitle.textContent = `רמה חדשה!`;
-    modalText.textContent = `עולים ל-${LEVELS[levelIdx + 1].cards} קלפים`;
-    modalBtn.textContent = 'המשך';
-    modalBtn.dataset.action = 'next';
-    playLevelUp();
-    overlay.classList.add('show');
-    state = 'levelup';
-  }
+  if (!isLast) levelIdx++;
+  successCount = 0;
+  missStreak = 0;
+  playLevelUp();
+  startRound();
 }
 
 function updateInfo() {
@@ -526,6 +523,37 @@ function endGame() {
   setTimeout(() => { location.href = 'index.html'; }, 1500);
 }
 document.getElementById('btn-end').addEventListener('click', confirmEndGame);
+
+// --- Inactivity watcher (2 minutes of no user input) ---
+const INACTIVITY_MS = 120000;
+const AUTO_END_MS = 10000;
+let inactivityTimer = null;
+let inactivityOverlay = null;
+function resetInactivity() {
+  if (inactivityOverlay) return;
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(showInactivityDialog, INACTIVITY_MS);
+}
+function showInactivityDialog() {
+  if (inactivityOverlay) return;
+  inactivityOverlay = document.createElement('div');
+  inactivityOverlay.className = 'end-overlay';
+  inactivityOverlay.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>2 דקות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  let to;
+  const cleanup = (choice) => {
+    if (to) { clearTimeout(to); to = null; }
+    if (inactivityOverlay && inactivityOverlay.parentNode) inactivityOverlay.remove();
+    inactivityOverlay = null;
+    if (choice === 'yes') resetInactivity();
+    else endGame();
+  };
+  inactivityOverlay.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  inactivityOverlay.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+  document.body.appendChild(inactivityOverlay);
+}
+document.addEventListener('pointerdown', resetInactivity);
+resetInactivity();
 </script>
 </body>
 </html>

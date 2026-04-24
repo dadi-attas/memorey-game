@@ -222,7 +222,10 @@ const CATEGORIES = [
 ];
 
 const SUCCESSES_TO_ADVANCE = 3;
+const MISSES_TO_DESCEND = 5;
 const RESULT_MS = 1100;
+const INACTIVITY_MS = 120000;
+const AUTO_END_MS = 10000;
 
 const boardEl = document.getElementById('board');
 const boardWrap = document.getElementById('board-wrap');
@@ -239,10 +242,12 @@ const modalEmoji = document.getElementById('modal-emoji');
 
 let levelIdx = 0;
 let successCount = 0;
+let missStreak = 0;
 let state = 'idle';
 let cards = [];
 let outlierIdx = -1;
 let lastOutlierIdx = -1;
+let inactivityTimer = null;
 
 function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
 function shuffle(arr) {
@@ -375,18 +380,48 @@ function startRound() {
   renderCards(allItems);
   statusEl.textContent = 'מי לא שייך?';
   state = 'guessing';
+  resetInactivity();
+}
+
+// --- Inactivity ---
+function resetInactivity() {
+  clearTimeout(inactivityTimer);
+  if (state === 'guessing' || state === 'result') {
+    inactivityTimer = setTimeout(showInactivityDialog, INACTIVITY_MS);
+  }
+}
+function showInactivityDialog() {
+  if (state === 'paused' || state === 'ended') return;
+  const prev = state;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>2 דקות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  let to;
+  const cleanup = (choice) => {
+    if (to) { clearTimeout(to); to = null; }
+    if (o.parentNode) o.remove();
+    if (choice === 'yes') { state = prev; resetInactivity(); }
+    else endGame();
+  };
+  o.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  o.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+  document.body.appendChild(o);
 }
 
 function onCardClick(idx) {
   if (state !== 'guessing') return;
   getAudio();
   if (cards[idx].classList.contains('empty')) return;
+  resetInactivity();
   state = 'result';
 
   if (idx === outlierIdx) {
     cards[idx].classList.add('correct');
     playSuccess();
     successCount++;
+    missStreak = 0;
     updateInfo();
     const isLast = levelIdx === LEVELS.length - 1;
     if (!isLast && successCount >= SUCCESSES_TO_ADVANCE) {
@@ -402,10 +437,18 @@ function onCardClick(idx) {
     cards[idx].classList.add('wrong');
     cards[outlierIdx].classList.add('correct');
     playError();
+    missStreak++;
     statusEl.textContent = 'לא נכון, מנסים שוב';
     setTimeout(() => {
       cards[idx].classList.remove('wrong');
       cards[outlierIdx].classList.remove('correct');
+      // Silent level-down after consecutive misses
+      if (missStreak >= MISSES_TO_DESCEND && levelIdx > 0) {
+        levelIdx--;
+        successCount = 0;
+        missStreak = 0;
+        lastOutlierIdx = -1;
+      }
       startRound();
     }, RESULT_MS + 400);
   }
@@ -422,14 +465,12 @@ function advanceLevel() {
     setTimeout(startRound, 800);
     return;
   }
-  modalEmoji.textContent = '⭐';
-  modalTitle.textContent = 'רמה חדשה!';
-  modalText.textContent = `עולים ל-${LEVELS[levelIdx + 1].cards} קלפים`;
-  modalBtn.textContent = 'המשך';
-  modalBtn.dataset.action = 'next';
+  // Silent advance — sound only, no modal
+  levelIdx++;
+  successCount = 0;
+  lastOutlierIdx = -1;
   playLevelUp();
-  overlay.classList.add('show');
-  state = 'levelup';
+  startRound();
 }
 
 function updateInfo() {
@@ -457,6 +498,7 @@ btnReset.addEventListener('click', () => {
   overlay.classList.remove('show');
   levelIdx = 0;
   successCount = 0;
+  missStreak = 0;
   lastOutlierIdx = -1;
   startRound();
 });
@@ -467,6 +509,7 @@ btnPrev.addEventListener('click', () => {
   overlay.classList.remove('show');
   levelIdx--;
   successCount = 0;
+  missStreak = 0;
   lastOutlierIdx = -1;
   startRound();
 });
@@ -476,14 +519,23 @@ window.addEventListener('resize', layoutBoard);
 startRound();
 
 function confirmEndGame() {
+  clearTimeout(inactivityTimer);
+  const prev = state;
+  state = 'paused';
   const overlay = document.createElement('div');
   overlay.className = 'end-overlay';
   overlay.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
   overlay.querySelector('.yes').addEventListener('click', () => { overlay.remove(); endGame(); });
-  overlay.querySelector('.no').addEventListener('click', () => overlay.remove());
+  overlay.querySelector('.no').addEventListener('click', () => {
+    overlay.remove();
+    state = prev;
+    resetInactivity();
+  });
   document.body.appendChild(overlay);
 }
 function endGame() {
+  clearTimeout(inactivityTimer);
+  state = 'ended';
   document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
   setTimeout(() => { location.href = 'index.html'; }, 1500);
 }

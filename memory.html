@@ -277,6 +277,8 @@
 <script>
   const LEVELS = [8, 12, 16, 20, 24];
   const SYMBOLS = ['🐶','🐱','🐭','🐹','🐰','🦊','🐻','🐼','🐨','🐯','🦁','🐮','🐷','🐸','🐵','🦄','🐙','🦀','🦉','🦋','🐢','🦖','🐳','🐊'];
+  const INACTIVITY_MS = 120000;
+  const AUTO_END_MS = 10000;
 
   const boardEl = document.getElementById('board');
   const levelNumEl = document.getElementById('level-num');
@@ -296,6 +298,48 @@
   let lock = false;
   let matchedPairs = 0;
   let tries = 0;
+  let state = 'playing';
+  let inactivityTimer = null;
+
+  // --- Audio ---
+  let audioCtx = null;
+  function getAudio() {
+    if (!audioCtx) {
+      const AC = window.AudioContext || window.webkitAudioContext;
+      if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+    }
+    if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+    return audioCtx;
+  }
+  function tone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.15, startOffset = 0, freqEnd = null }) {
+    const ac = getAudio();
+    if (!ac) return;
+    const osc = ac.createOscillator();
+    const gain = ac.createGain();
+    osc.type = type;
+    const t0 = ac.currentTime + startOffset;
+    osc.frequency.setValueAtTime(freq, t0);
+    if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+    gain.gain.setValueAtTime(0, t0);
+    gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+    gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+    osc.connect(gain).connect(ac.destination);
+    osc.start(t0);
+    osc.stop(t0 + duration + 0.02);
+  }
+  function playFlip() {
+    tone({ freq: 660, type: 'sine', duration: 0.06, volume: 0.10 });
+  }
+  function playMatch() {
+    tone({ freq: 523.25, type: 'sine', duration: 0.13, volume: 0.16 });
+    tone({ freq: 659.25, type: 'sine', duration: 0.14, volume: 0.16, startOffset: 0.1 });
+  }
+  function playMismatch() { tone({ freq: 260, freqEnd: 150, type: 'sawtooth', duration: 0.3, volume: 0.13 }); }
+  function playLevelUp() {
+    [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+      tone({ freq: f, type: 'sine', duration: 0.18, volume: 0.18, startOffset: i * 0.1 });
+    });
+  }
 
   function shuffle(arr) {
     for (let i = arr.length - 1; i > 0; i--) {
@@ -401,9 +445,13 @@
 
   function onCardClick(card) {
     if (lock) return;
+    if (state !== 'playing') return;
     if (card.classList.contains('flipped') || card.classList.contains('matched')) return;
+    getAudio();
+    resetInactivity();
 
     card.classList.add('flipped');
+    playFlip();
 
     if (!firstCard) {
       firstCard = card;
@@ -420,11 +468,15 @@
       secondCard.classList.add('matched');
       matchedPairs++;
       pairsNumEl.textContent = `${matchedPairs}/${LEVELS[levelIdx] / 2}`;
+      playMatch();
       resetTurn();
       if (matchedPairs === LEVELS[levelIdx] / 2) {
+        const isLast = levelIdx === LEVELS.length - 1;
+        if (!isLast) playLevelUp();
         setTimeout(onLevelComplete, 550);
       }
     } else {
+      playMismatch();
       setTimeout(() => {
         firstCard.classList.remove('flipped');
         secondCard.classList.remove('flipped');
@@ -440,60 +492,78 @@
   }
 
   function onLevelComplete() {
+    // Silent advance — no modal. Last level loops back to 0.
     const isLast = levelIdx === LEVELS.length - 1;
-    if (isLast) {
-      modalTitle.textContent = 'סיימת את כל הרמות!';
-      modalText.textContent = `ניסיונות סופיים: ${tries}. אלוף!`;
-      modalBtn.textContent = 'התחל מחדש';
-      modalBtn.dataset.action = 'restart';
-    } else {
-      modalTitle.textContent = 'כל הכבוד!';
-      modalText.textContent = `עברת את הרמה ב-${tries} ניסיונות`;
-      modalBtn.textContent = 'לרמה הבאה';
-      modalBtn.dataset.action = 'next';
-    }
-    overlay.classList.add('show');
+    setTimeout(() => {
+      levelIdx = isLast ? 0 : levelIdx + 1;
+      buildLevel();
+    }, 900);
   }
 
-  modalBtn.addEventListener('click', () => {
-    const action = modalBtn.dataset.action;
-    overlay.classList.remove('show');
-    if (action === 'next') {
-      levelIdx = Math.min(levelIdx + 1, LEVELS.length - 1);
-    } else {
-      levelIdx = 0;
-    }
-    buildLevel();
-  });
-
   btnReset.addEventListener('click', () => {
-    overlay.classList.remove('show');
+    getAudio();
+    resetInactivity();
     levelIdx = 0;
     buildLevel();
   });
 
   btnPrev.addEventListener('click', () => {
+    getAudio();
+    resetInactivity();
     if (levelIdx === 0) return;
-    overlay.classList.remove('show');
     levelIdx--;
     buildLevel();
   });
+
+  // --- Inactivity ---
+  function resetInactivity() {
+    clearTimeout(inactivityTimer);
+    if (state === 'playing') inactivityTimer = setTimeout(showInactivityDialog, INACTIVITY_MS);
+  }
+  function showInactivityDialog() {
+    if (state !== 'playing') return;
+    state = 'paused';
+    const o = document.createElement('div');
+    o.className = 'end-overlay';
+    o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>2 דקות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+    let to;
+    const cleanup = (choice) => {
+      if (to) { clearTimeout(to); to = null; }
+      if (o.parentNode) o.remove();
+      if (choice === 'yes') { state = 'playing'; resetInactivity(); }
+      else endGame();
+    };
+    o.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+    o.querySelector('.no').addEventListener('click', () => cleanup('no'));
+    to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+    document.body.appendChild(o);
+  }
 
   window.addEventListener('resize', layoutBoard);
   window.addEventListener('orientationchange', () => setTimeout(layoutBoard, 150));
 
   buildLevel();
+  resetInactivity();
 
   // --- End-game flow ---
   function confirmEndGame() {
+    clearTimeout(inactivityTimer);
+    const prevState = state;
+    state = 'paused';
     const overlay = document.createElement('div');
     overlay.className = 'end-overlay';
     overlay.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
     overlay.querySelector('.yes').addEventListener('click', () => { overlay.remove(); endGame(); });
-    overlay.querySelector('.no').addEventListener('click', () => overlay.remove());
+    overlay.querySelector('.no').addEventListener('click', () => {
+      overlay.remove();
+      state = prevState;
+      resetInactivity();
+    });
     document.body.appendChild(overlay);
   }
   function endGame() {
+    clearTimeout(inactivityTimer);
+    state = 'ended';
     document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
     setTimeout(() => { location.href = 'index.html'; }, 1500);
   }

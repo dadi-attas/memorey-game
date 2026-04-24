@@ -506,6 +506,37 @@ function endGame() {
   setTimeout(() => { location.href = 'index.html'; }, 1500);
 }
 document.getElementById('btn-end').addEventListener('click', confirmEndGame);
+
+// --- Inactivity watcher (2 minutes of no user input) ---
+const INACTIVITY_MS = 120000;
+const AUTO_END_MS = 10000;
+let inactivityTimer = null;
+let inactivityOverlay = null;
+function resetInactivity() {
+  if (inactivityOverlay) return;
+  clearTimeout(inactivityTimer);
+  inactivityTimer = setTimeout(showInactivityDialog, INACTIVITY_MS);
+}
+function showInactivityDialog() {
+  if (inactivityOverlay) return;
+  inactivityOverlay = document.createElement('div');
+  inactivityOverlay.className = 'end-overlay';
+  inactivityOverlay.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>2 דקות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  let to;
+  const cleanup = (choice) => {
+    if (to) { clearTimeout(to); to = null; }
+    if (inactivityOverlay && inactivityOverlay.parentNode) inactivityOverlay.remove();
+    inactivityOverlay = null;
+    if (choice === 'yes') resetInactivity();
+    else endGame();
+  };
+  inactivityOverlay.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  inactivityOverlay.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+  document.body.appendChild(inactivityOverlay);
+}
+document.addEventListener('pointerdown', resetInactivity);
+resetInactivity();
 </script>
 </body>
 </html>
