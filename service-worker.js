@@ -1,6 +1,6 @@
 // Simple cache-first service worker for offline play.
 // Bump CACHE_VERSION whenever any game file is updated to force a refresh.
-const CACHE_VERSION = 'v6';
+const CACHE_VERSION = 'v7';
 const CACHE_NAME = 'mishachakia-' + CACHE_VERSION;
 
 const FILES_TO_CACHE = [
