@@ -1,0 +1,566 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>פסיפס צבעים</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎨</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff; user-select: none; touch-action: manipulation;
+  }
+  #app { height: 100vh; width: 100vw; display: flex; flex-direction: column; padding: 12px; gap: 8px; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex: 0 0 auto; height: 58px;
+  }
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff; padding: 11px 20px;
+    font-size: 17px; font-weight: 700;
+    border-radius: 12px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.94); }
+  .info {
+    flex: 1 1 auto; display: flex; justify-content: center; align-items: center;
+    gap: 28px; font-size: 20px; font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .info span b { color: #ffd86b; font-size: 26px; margin-inline-start: 6px; }
+
+  #status {
+    flex: 0 0 auto;
+    text-align: center;
+    font-size: 22px; font-weight: 700;
+    min-height: 30px;
+    color: #ffd86b;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+  }
+
+  #play-area {
+    flex: 1 1 auto;
+    display: flex; flex-direction: row;
+    gap: 24px;
+    align-items: center; justify-content: center;
+    min-height: 0; min-width: 0;
+    padding: 4px;
+  }
+  /* RTL: reference on right (visually first), user grid on left */
+  .panel {
+    display: flex; flex-direction: column;
+    align-items: center;
+    gap: 8px;
+  }
+  .panel-label {
+    font-size: 18px;
+    font-weight: 800;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    background: rgba(0,0,0,0.25);
+    padding: 4px 14px;
+    border-radius: 10px;
+    border: 2px solid rgba(255,255,255,0.25);
+  }
+
+  .grid {
+    display: grid;
+    gap: 6px;
+    background: rgba(255,255,255,0.08);
+    padding: 8px;
+    border-radius: 14px;
+    border: 3px solid rgba(255,255,255,0.5);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.35);
+  }
+  .grid.user .cell { cursor: pointer; }
+  .grid.user .cell:hover { transform: scale(1.04); }
+  .grid.user .cell:active { transform: scale(0.94); }
+
+  .cell {
+    width: var(--cell-size, 70px);
+    height: var(--cell-size, 70px);
+    border-radius: 10px;
+    background: #ffffff20;
+    border: 2px solid rgba(255,255,255,0.35);
+    transition: transform 0.1s, background 0.2s, border-color 0.2s;
+  }
+  .cell[data-color] {
+    border-color: rgba(0,0,0,0.25);
+  }
+
+  .palette {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    align-items: center;
+    margin-top: 8px;
+  }
+  .swatch {
+    width: var(--swatch-size, 62px);
+    height: var(--swatch-size, 62px);
+    border-radius: 14px;
+    cursor: pointer;
+    border: 4px solid rgba(255,255,255,0.5);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+    transition: transform 0.1s, border-color 0.15s, box-shadow 0.15s;
+  }
+  .swatch:active { transform: scale(0.94); }
+  .swatch.selected {
+    border-color: #ffd86b;
+    box-shadow: 0 0 22px rgba(255, 216, 107, 0.85);
+    transform: scale(1.06);
+  }
+
+  /* Color palette — large, clear colors */
+  .color-red    { background: #e34b4b; }
+  .color-blue   { background: #3a78d8; }
+  .color-green  { background: #4caf50; }
+  .color-yellow { background: #f0c94a; }
+  .color-orange { background: #f08a3a; }
+  .color-purple { background: #9b59b6; }
+
+  .grid.user.solved {
+    animation: solved 0.8s ease;
+    border-color: #7dd87d;
+    box-shadow: 0 0 32px rgba(125, 216, 125, 0.7);
+  }
+  @keyframes solved {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.04); }
+    100% { transform: scale(1); }
+  }
+
+  .cell.wrong-flash {
+    animation: cellShake 0.4s ease;
+  }
+  @keyframes cellShake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-4px); }
+    75% { transform: translateX(4px); }
+  }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal p { font-size: 15px; margin-bottom: 14px; opacity: 0.9; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס</button>
+    <div class="info">
+      <span>גודל: <b id="size-info">2×2</b></span>
+      <span>הצלחות: <b id="progress">0/3</b></span>
+    </div>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="status">צבע לפי הדוגמה</div>
+  <div id="play-area">
+    <div class="panel">
+      <div class="panel-label">דוגמה</div>
+      <div class="grid reference" id="reference-grid"></div>
+    </div>
+    <div class="panel">
+      <div class="panel-label">צבע כאן</div>
+      <div class="grid user" id="user-grid"></div>
+      <div class="palette" id="palette"></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const COLORS = ['red','blue','green','yellow','orange','purple'];
+
+// Each level: grid size + how many colors to use
+const LEVELS = [
+  { rows: 2, cols: 2, numColors: 2 },
+  { rows: 2, cols: 2, numColors: 3 },
+  { rows: 2, cols: 3, numColors: 3 },
+  { rows: 3, cols: 3, numColors: 3 },
+  { rows: 3, cols: 3, numColors: 4 },
+];
+
+const SUCCESSES_TO_ADVANCE = 3;
+const MISSES_TO_DESCEND = 5;
+const INACTIVITY_MS = 120000;
+const AUTO_END_MS = 10000;
+
+const referenceGrid = document.getElementById('reference-grid');
+const userGrid = document.getElementById('user-grid');
+const paletteEl = document.getElementById('palette');
+const sizeInfoEl = document.getElementById('size-info');
+const progressEl = document.getElementById('progress');
+const statusEl = document.getElementById('status');
+const btnReset = document.getElementById('btn-reset');
+const playArea = document.getElementById('play-area');
+
+let levelIdx = 0;
+let successCount = 0;
+let missStreak = 0;
+let state = 'idle';
+let solution = [];        // array of color names, length = rows*cols
+let userCells = [];       // array of color or null
+let selectedColor = null;
+let activeColors = [];
+let inactivityTimer = null;
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// --- Audio ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.15, startOffset = 0, freqEnd = null }) {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  const t0 = ac.currentTime + startOffset;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function playPaint() { tone({ freq: 660, type: 'sine', duration: 0.06, volume: 0.10 }); }
+function playSuccess() {
+  tone({ freq: 523.25, type: 'sine', duration: 0.13, volume: 0.16 });
+  tone({ freq: 659.25, type: 'sine', duration: 0.14, volume: 0.16, startOffset: 0.1 });
+}
+function playError() { tone({ freq: 260, freqEnd: 150, type: 'sawtooth', duration: 0.3, volume: 0.13 }); }
+function playLevelUp() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.18, volume: 0.18, startOffset: i * 0.1 });
+  });
+}
+
+// --- Layout ---
+function layout() {
+  const lvl = LEVELS[levelIdx];
+  const rows = lvl.rows, cols = lvl.cols;
+  const areaW = playArea.clientWidth;
+  const areaH = playArea.clientHeight;
+  if (areaW === 0 || areaH === 0) return;
+
+  // Two panels side by side, each with label + grid (+ palette under user panel)
+  // Available width per panel (subtract gap between panels + safety padding):
+  const panelW = (areaW - 24 - 40) / 2;
+  // Heights: panel-label ~32, gap 8, grid ?, palette ?, gaps
+  const labelH = 32;
+  const paletteH = 80; // approx
+  // User panel needs more height (label + grid + palette)
+  const userAvailH = areaH - labelH - paletteH - 24;
+  // Reference panel needs (label + grid)
+  const refAvailH = areaH - labelH - 8;
+  // Cell size limited by both width (col-bound) and height (row-bound)
+  const innerPad = 16; // grid padding + border
+  const gap = 6;
+  const cellByW = (panelW - innerPad - gap * (cols - 1)) / cols;
+  const cellByH = (Math.min(userAvailH, refAvailH) - innerPad - gap * (rows - 1)) / rows;
+  let cellSize = Math.floor(Math.min(cellByW, cellByH));
+  cellSize = Math.max(38, Math.min(110, cellSize));
+
+  document.querySelectorAll('.cell').forEach(c => c.style.setProperty('--cell-size', cellSize + 'px'));
+
+  // Swatches a bit larger than cells but capped
+  const swatchSize = Math.max(48, Math.min(80, cellSize + 4));
+  document.querySelectorAll('.swatch').forEach(s => s.style.setProperty('--swatch-size', swatchSize + 'px'));
+}
+
+// --- Rendering ---
+function renderGrid(el, cellColors, isUser) {
+  const lvl = LEVELS[levelIdx];
+  el.innerHTML = '';
+  el.style.gridTemplateColumns = `repeat(${lvl.cols}, 1fr)`;
+  el.style.gridTemplateRows = `repeat(${lvl.rows}, 1fr)`;
+  for (let i = 0; i < lvl.rows * lvl.cols; i++) {
+    const c = document.createElement('div');
+    c.className = 'cell';
+    const color = cellColors[i];
+    if (color) {
+      c.classList.add('color-' + color);
+      c.dataset.color = color;
+    }
+    if (isUser) c.addEventListener('click', () => onCellClick(i));
+    el.appendChild(c);
+  }
+}
+
+function renderPalette() {
+  paletteEl.innerHTML = '';
+  activeColors.forEach(color => {
+    const s = document.createElement('div');
+    s.className = 'swatch color-' + color;
+    if (color === selectedColor) s.classList.add('selected');
+    s.addEventListener('click', () => onSwatchClick(color));
+    paletteEl.appendChild(s);
+  });
+}
+
+// --- Round flow ---
+function startRound() {
+  const lvl = LEVELS[levelIdx];
+  updateInfo();
+
+  // Pick which N colors are active this round
+  activeColors = shuffle([...COLORS]).slice(0, lvl.numColors);
+
+  // Build reference solution — use each color at least once, then random
+  solution = [];
+  const n = lvl.rows * lvl.cols;
+  for (let i = 0; i < activeColors.length; i++) solution.push(activeColors[i]);
+  for (let i = activeColors.length; i < n; i++) solution.push(pick(activeColors));
+  solution = shuffle(solution);
+
+  // Empty user grid
+  userCells = new Array(n).fill(null);
+
+  // Default selected = first active color
+  selectedColor = activeColors[0];
+
+  renderGrid(referenceGrid, solution, false);
+  renderGrid(userGrid, userCells, true);
+  renderPalette();
+  userGrid.classList.remove('solved');
+  statusEl.textContent = 'צבע לפי הדוגמה';
+  state = 'painting';
+  requestAnimationFrame(layout);
+  resetInactivity();
+}
+
+function onSwatchClick(color) {
+  if (state !== 'painting') return;
+  getAudio();
+  resetInactivity();
+  selectedColor = color;
+  // Update visual selection
+  paletteEl.querySelectorAll('.swatch').forEach((el, i) => {
+    el.classList.toggle('selected', activeColors[i] === color);
+  });
+}
+
+function onCellClick(idx) {
+  if (state !== 'painting') return;
+  if (!selectedColor) return;
+  getAudio();
+  resetInactivity();
+
+  // Apply selected color to that cell
+  userCells[idx] = selectedColor;
+  const cellEl = userGrid.children[idx];
+  // Remove all color classes
+  COLORS.forEach(c => cellEl.classList.remove('color-' + c));
+  cellEl.classList.add('color-' + selectedColor);
+  cellEl.dataset.color = selectedColor;
+
+  // Quick feedback per tap
+  if (selectedColor === solution[idx]) {
+    playPaint();
+  } else {
+    playPaint();
+    cellEl.classList.remove('wrong-flash');
+    void cellEl.offsetWidth;
+    cellEl.classList.add('wrong-flash');
+  }
+
+  // Check if grid is fully filled
+  if (userCells.every(c => c !== null)) {
+    checkSolution();
+  }
+}
+
+function checkSolution() {
+  const matches = userCells.every((c, i) => c === solution[i]);
+  state = 'result';
+
+  if (matches) {
+    userGrid.classList.add('solved');
+    playSuccess();
+    successCount++;
+    missStreak = 0;
+    updateInfo();
+    statusEl.textContent = 'מצוין!';
+    const isLast = levelIdx === LEVELS.length - 1;
+    if (!isLast && successCount >= SUCCESSES_TO_ADVANCE) {
+      setTimeout(advanceLevel, 1100);
+    } else {
+      setTimeout(startRound, 1100);
+    }
+  } else {
+    // Not matching — error, clear wrong cells so user can retry
+    playError();
+    missStreak++;
+    statusEl.textContent = 'יש טעות, נסה שוב';
+    // Flash all wrong cells red
+    userCells.forEach((c, i) => {
+      if (c !== solution[i]) {
+        const el = userGrid.children[i];
+        el.classList.remove('wrong-flash');
+        void el.offsetWidth;
+        el.classList.add('wrong-flash');
+      }
+    });
+    setTimeout(() => {
+      // Clear only the wrong cells
+      userCells.forEach((c, i) => {
+        if (c !== solution[i]) {
+          userCells[i] = null;
+          const el = userGrid.children[i];
+          COLORS.forEach(co => el.classList.remove('color-' + co));
+          delete el.dataset.color;
+          el.classList.remove('wrong-flash');
+        }
+      });
+      // Silent level-down after N consecutive misses
+      if (missStreak >= MISSES_TO_DESCEND && levelIdx > 0) {
+        levelIdx--;
+        successCount = 0;
+        missStreak = 0;
+        startRound();
+        return;
+      }
+      statusEl.textContent = 'צבע לפי הדוגמה';
+      state = 'painting';
+    }, 1100);
+  }
+}
+
+function advanceLevel() {
+  levelIdx++;
+  successCount = 0;
+  missStreak = 0;
+  playLevelUp();
+  startRound();
+}
+
+function updateInfo() {
+  const lvl = LEVELS[levelIdx];
+  sizeInfoEl.textContent = `${lvl.rows}×${lvl.cols}`;
+  const isLast = levelIdx === LEVELS.length - 1;
+  progressEl.textContent = isLast ? `${successCount}` : `${successCount}/${SUCCESSES_TO_ADVANCE}`;
+}
+
+btnReset.addEventListener('click', () => {
+  getAudio();
+  resetInactivity();
+  levelIdx = 0;
+  successCount = 0;
+  missStreak = 0;
+  startRound();
+});
+
+window.addEventListener('resize', layout);
+
+startRound();
+
+// --- Inactivity ---
+function resetInactivity() {
+  clearTimeout(inactivityTimer);
+  if (state !== 'paused' && state !== 'ended') {
+    inactivityTimer = setTimeout(showInactivityDialog, INACTIVITY_MS);
+  }
+}
+function showInactivityDialog() {
+  if (state === 'paused' || state === 'ended') return;
+  const prev = state;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>2 דקות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  let to;
+  const cleanup = (choice) => {
+    if (to) { clearTimeout(to); to = null; }
+    if (o.parentNode) o.remove();
+    if (choice === 'yes') { state = prev; resetInactivity(); }
+    else endGame();
+  };
+  o.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  o.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+  document.body.appendChild(o);
+}
+
+// --- End-game ---
+function confirmEndGame() {
+  clearTimeout(inactivityTimer);
+  const prev = state;
+  state = 'paused';
+  const overlay = document.createElement('div');
+  overlay.className = 'end-overlay';
+  overlay.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  overlay.querySelector('.yes').addEventListener('click', () => { overlay.remove(); endGame(); });
+  overlay.querySelector('.no').addEventListener('click', () => {
+    overlay.remove();
+    state = prev;
+    resetInactivity();
+  });
+  document.body.appendChild(overlay);
+}
+function endGame() {
+  clearTimeout(inactivityTimer);
+  state = 'ended';
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+document.getElementById('btn-end').addEventListener('click', confirmEndGame);
+</script>
+</body>
+</html>

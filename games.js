@@ -66,6 +66,15 @@ window.GAMES = [
     file: 'belong.html',
     desc: 'בחר רק את הפריטים השייכים'
   },
+  {
+    id: 'season',
+    title: 'מתאים לעונה',
+    category: 'logic',
+    emoji: '🍂',
+    file: 'season.html',
+    desc: 'בחר מה מתאים לעונה',
+    isNew: true
+  },
 
   {
     id: 'shadow',
@@ -98,6 +107,15 @@ window.GAMES = [
     emoji: '🧩',
     file: 'puzzle.html',
     desc: 'הרכב את התמונה'
+  },
+  {
+    id: 'matchtwin',
+    title: 'מצא את התאום',
+    category: 'visual',
+    emoji: '👯',
+    file: 'matchtwin.html',
+    desc: 'בחר את הפריט הזהה',
+    isNew: true
   },
 
   {
@@ -132,6 +150,15 @@ window.GAMES = [
     file: 'maze.html',
     desc: 'הובל את העכבר לגבינה'
   },
+  {
+    id: 'tapwhensee',
+    title: 'לחץ כשרואים',
+    category: 'reaction',
+    emoji: '👀',
+    file: 'tapwhensee.html',
+    desc: 'לחץ רק כשרואים את הפריט',
+    isNew: true
+  },
 
   {
     id: 'math',
@@ -165,6 +192,15 @@ window.GAMES = [
     file: 'clock.html',
     desc: 'הצב את המספרים על השעון'
   },
+  {
+    id: 'firstletter',
+    title: 'אות ראשונה',
+    category: 'knowledge',
+    emoji: '🔤',
+    file: 'firstletter.html',
+    desc: 'בחר את האות הראשונה של המילה',
+    isNew: true
+  },
 
   {
     id: 'coloring',
@@ -173,6 +209,15 @@ window.GAMES = [
     emoji: '🎨',
     file: 'coloring.html',
     desc: 'צבע את התמונה'
+  },
+  {
+    id: 'mosaic',
+    title: 'פסיפס צבעים',
+    category: 'creative',
+    emoji: '🟦',
+    file: 'mosaic.html',
+    desc: 'צבע את הפסיפס לפי הדוגמה',
+    isNew: true
   }
 ];
 

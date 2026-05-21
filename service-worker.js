@@ -1,6 +1,6 @@
 // Simple cache-first service worker for offline play.
 // Bump CACHE_VERSION whenever any game file is updated to force a refresh.
-const CACHE_VERSION = 'v7';
+const CACHE_VERSION = 'v8';
 const CACHE_NAME = 'mishachakia-' + CACHE_VERSION;
 
 const FILES_TO_CACHE = [
@@ -30,7 +30,12 @@ const FILES_TO_CACHE = [
   'belong.html',
   'heavier.html',
   'clock.html',
-  'shapes.html'
+  'shapes.html',
+  'matchtwin.html',
+  'firstletter.html',
+  'season.html',
+  'tapwhensee.html',
+  'mosaic.html'
 ];
 
 self.addEventListener('install', (event) => {

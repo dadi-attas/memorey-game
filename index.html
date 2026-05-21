@@ -84,6 +84,7 @@
   }
 
   .game-btn {
+    position: relative;
     background: var(--bg, #fff);
     color: var(--fg, #222);
     border: 3px solid rgba(255, 255, 255, 0.7);
@@ -101,6 +102,28 @@
     box-shadow: 0 6px 14px rgba(0, 0, 0, 0.25), inset 0 -4px 0 rgba(0, 0, 0, 0.1);
     transition: transform 0.1s, box-shadow 0.15s;
     min-height: 120px;
+  }
+  .new-badge {
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    background: linear-gradient(135deg, #ff5e5e 0%, #d83030 100%);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 900;
+    padding: 5px 13px;
+    border-radius: 14px;
+    border: 2px solid rgba(255, 255, 255, 0.9);
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+    z-index: 2;
+    animation: newPulse 1.4s ease-in-out 3;
+    animation-fill-mode: both;
+    pointer-events: none;
+  }
+  @keyframes newPulse {
+    0%, 100% { transform: scale(1); }
+    50% { transform: scale(1.18); box-shadow: 0 4px 18px rgba(255, 94, 94, 0.7); }
   }
   .game-btn:active {
     transform: scale(0.96);
@@ -200,6 +223,12 @@
       btn.style.setProperty('--bg', cat.color);
       btn.style.setProperty('--fg', cat.textColor);
       btn.innerHTML = `<div class="emoji">${g.emoji}</div><div class="title">${g.title}</div>`;
+      if (g.isNew) {
+        const badge = document.createElement('div');
+        badge.className = 'new-badge';
+        badge.textContent = 'חדש';
+        btn.appendChild(badge);
+      }
       btn.addEventListener('click', () => { location.href = g.file; });
       grid.appendChild(btn);
     }

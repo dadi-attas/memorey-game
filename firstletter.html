@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>אות ראשונה</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔤</text></svg>">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; }
+  html, body {
+    height: 100%; width: 100%; overflow: hidden;
+    font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    color: #fff; user-select: none; touch-action: manipulation;
+  }
+  #app { height: 100vh; width: 100vw; display: flex; flex-direction: column; padding: 12px; gap: 10px; }
+  header {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; flex: 0 0 auto; height: 58px;
+  }
+  .btn {
+    background: rgba(255, 255, 255, 0.18);
+    border: 2px solid rgba(255, 255, 255, 0.35);
+    color: #fff; padding: 11px 20px;
+    font-size: 17px; font-weight: 700;
+    border-radius: 12px; cursor: pointer;
+    transition: transform 0.08s, background 0.15s;
+    white-space: nowrap;
+  }
+  .btn:hover { background: rgba(255, 255, 255, 0.3); }
+  .btn:active { transform: scale(0.94); }
+  .info {
+    flex: 1 1 auto; display: flex; justify-content: center; align-items: center;
+    gap: 28px; font-size: 20px; font-weight: 600;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  }
+  .info span b { color: #ffd86b; font-size: 26px; margin-inline-start: 6px; }
+
+  #status {
+    flex: 0 0 auto;
+    text-align: center;
+    font-size: 22px; font-weight: 700;
+    min-height: 30px;
+    color: #ffd86b;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
+    letter-spacing: 1px;
+  }
+
+  #target-wrap {
+    flex: 0 0 auto;
+    display: flex; align-items: center; justify-content: center;
+    padding: 6px;
+  }
+  #target {
+    background: radial-gradient(ellipse at center, #fffdf7 0%, #f4e9cf 75%, #e8d9a8 100%);
+    color: #222;
+    width: var(--target-size, 150px);
+    height: var(--target-size, 150px);
+    border-radius: 26px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: calc(var(--target-size, 150px) * 0.62);
+    box-shadow: inset 0 4px 18px rgba(0,0,0,0.22), 0 10px 28px rgba(0,0,0,0.4);
+    border: 3px solid rgba(255,255,255,0.6);
+  }
+
+  #choices-wrap {
+    flex: 1 1 auto;
+    display: flex; align-items: center; justify-content: center;
+    min-height: 0; min-width: 0;
+    padding: 4px;
+  }
+  #choices {
+    display: flex;
+    gap: var(--gap, 16px);
+    justify-content: center;
+    align-items: center;
+  }
+
+  .card {
+    background: #fff;
+    color: #222;
+    width: var(--card-size, 130px);
+    height: var(--card-size, 130px);
+    border-radius: 20px;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer;
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.35);
+    border: 3px solid rgba(255, 255, 255, 0.5);
+    transition: transform 0.1s, box-shadow 0.15s, background 0.2s;
+    font-size: calc(var(--card-size, 130px) * 0.62);
+    font-family: "David", "Frank Ruehl", "Tahoma", serif;
+    font-weight: 900;
+    line-height: 1;
+  }
+  .card:hover { transform: scale(1.04); box-shadow: 0 10px 22px rgba(0,0,0,0.45); }
+  .card:active { transform: scale(0.96); }
+  .card.locked { cursor: default; pointer-events: none; }
+  .card.correct {
+    background: #a8e6a1; color: #14532d;
+    animation: pulseGreen 0.8s ease;
+  }
+  .card.wrong {
+    background: #ffb3b3; color: #7a1a1a;
+    animation: shake 0.5s ease;
+  }
+  @keyframes pulseGreen {
+    0% { box-shadow: 0 6px 16px rgba(0,0,0,0.35); }
+    50% { box-shadow: 0 0 35px rgba(86,195,77,0.9); transform: scale(1.07); }
+    100% { box-shadow: 0 6px 16px rgba(0,0,0,0.35); }
+  }
+  @keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    20% { transform: translateX(-10px); }
+    40% { transform: translateX(10px); }
+    60% { transform: translateX(-6px); }
+    80% { transform: translateX(6px); }
+  }
+
+  .btn-end {
+    background: linear-gradient(135deg, #ff8a8a 0%, #e55b5b 100%) !important;
+    border-color: rgba(255,255,255,0.55) !important;
+    color: #fff !important;
+  }
+  .end-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.75);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 9999; backdrop-filter: blur(4px);
+  }
+  .end-modal {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    padding: 28px 38px; border-radius: 20px; text-align: center;
+    max-width: 90%; box-shadow: 0 20px 50px rgba(0,0,0,0.5); color: #fff;
+  }
+  .end-modal h2 { font-size: 28px; margin-bottom: 18px; font-weight: 800; }
+  .end-modal p { font-size: 15px; margin-bottom: 14px; opacity: 0.9; }
+  .end-modal .ebtns { display: flex; gap: 14px; justify-content: center; }
+  .end-modal button {
+    padding: 12px 30px; font-size: 18px; font-weight: 800;
+    border-radius: 12px; cursor: pointer;
+    border: 2px solid rgba(255,255,255,0.55);
+    font-family: inherit;
+  }
+  .end-modal button.yes { background: #7dd87d; color: #fff; }
+  .end-modal button.no  { background: #fff; color: #333; }
+  .goodbye {
+    position: fixed; inset: 0;
+    background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+    display: flex; align-items: center; justify-content: center;
+    flex-direction: column; color: #fff;
+    z-index: 99999;
+  }
+  .goodbye .wave { font-size: 110px; margin-bottom: 12px; }
+  .goodbye .text { font-size: 46px; font-weight: 800; }
+
+  /* Word label below target (helps confirm what emoji depicts) */
+  #target-label {
+    margin-top: 6px;
+    font-size: 22px;
+    font-weight: 700;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+    letter-spacing: 0.5px;
+    text-align: center;
+    min-height: 28px;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <button id="btn-reset" class="btn">איפוס</button>
+    <div class="info">
+      <span>אותיות: <b id="num-choices">2</b></span>
+      <span>נכונים: <b id="progress">0/3</b></span>
+    </div>
+    <button id="btn-end" class="btn btn-end">סיום</button>
+  </header>
+  <div id="status">בחר את האות הראשונה</div>
+  <div id="target-wrap">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px;">
+      <div id="target"></div>
+      <div id="target-label"></div>
+    </div>
+  </div>
+  <div id="choices-wrap">
+    <div id="choices"></div>
+  </div>
+</div>
+
+<script>
+// Curated list: only emojis with unambiguous Hebrew first letter
+const WORDS = [
+  { emoji: '🍎', word: 'תפוח',   letter: 'ת' },
+  { emoji: '🍌', word: 'בננה',   letter: 'ב' },
+  { emoji: '🥕', word: 'גזר',    letter: 'ג' },
+  { emoji: '🍞', word: 'לחם',    letter: 'ל' },
+  { emoji: '🧀', word: 'גבינה',  letter: 'ג' },
+  { emoji: '🍅', word: 'עגבנייה',letter: 'ע' },
+  { emoji: '🍊', word: 'תפוז',   letter: 'ת' },
+  { emoji: '🍓', word: 'תות',    letter: 'ת' },
+  { emoji: '🍇', word: 'ענבים',  letter: 'ע' },
+  { emoji: '🍒', word: 'דובדבן', letter: 'ד' },
+  { emoji: '🍐', word: 'אגס',    letter: 'א' },
+  { emoji: '🍉', word: 'אבטיח',  letter: 'א' },
+  { emoji: '🥚', word: 'ביצה',   letter: 'ב' },
+  { emoji: '🐶', word: 'כלב',    letter: 'כ' },
+  { emoji: '🐱', word: 'חתול',   letter: 'ח' },
+  { emoji: '🐭', word: 'עכבר',   letter: 'ע' },
+  { emoji: '🐰', word: 'ארנב',   letter: 'א' },
+  { emoji: '🐻', word: 'דוב',    letter: 'ד' },
+  { emoji: '🦁', word: 'אריה',   letter: 'א' },
+  { emoji: '🐮', word: 'פרה',    letter: 'פ' },
+  { emoji: '🐷', word: 'חזיר',   letter: 'ח' },
+  { emoji: '🐔', word: 'תרנגול', letter: 'ת' },
+  { emoji: '🐧', word: 'פינגווין',letter: 'פ' },
+  { emoji: '🐢', word: 'צב',     letter: 'צ' },
+  { emoji: '🐝', word: 'דבורה',  letter: 'ד' },
+  { emoji: '🦋', word: 'פרפר',   letter: 'פ' },
+  { emoji: '🐌', word: 'חילזון', letter: 'ח' },
+  { emoji: '🦒', word: "ג'ירפה", letter: 'ג' },
+  { emoji: '🐴', word: 'סוס',    letter: 'ס' },
+  { emoji: '🐑', word: 'כבשה',   letter: 'כ' },
+  { emoji: '🐟', word: 'דג',     letter: 'ד' },
+  { emoji: '🦈', word: 'כריש',   letter: 'כ' },
+  { emoji: '🐙', word: 'תמנון',  letter: 'ת' },
+  { emoji: '🦀', word: 'סרטן',   letter: 'ס' },
+  { emoji: '🌹', word: 'ורד',    letter: 'ו' },
+  { emoji: '🌻', word: 'חמנייה', letter: 'ח' },
+  { emoji: '🌳', word: 'עץ',     letter: 'ע' },
+  { emoji: '🌷', word: 'צבעוני', letter: 'צ' },
+  { emoji: '☀️',  word: 'שמש',    letter: 'ש' },
+  { emoji: '🌙', word: 'ירח',    letter: 'י' },
+  { emoji: '⭐', word: 'כוכב',   letter: 'כ' },
+  { emoji: '🌧️', word: 'גשם',    letter: 'ג' },
+  { emoji: '❄️',  word: 'שלג',    letter: 'ש' },
+  { emoji: '🌈', word: 'קשת',    letter: 'ק' },
+  { emoji: '🏠', word: 'בית',    letter: 'ב' },
+  { emoji: '🚗', word: 'מכונית', letter: 'מ' },
+  { emoji: '🚌', word: 'אוטובוס',letter: 'א' },
+  { emoji: '✈️',  word: 'מטוס',   letter: 'מ' },
+  { emoji: '🚁', word: 'מסוק',   letter: 'מ' },
+  { emoji: '🚲', word: 'אופניים',letter: 'א' },
+  { emoji: '⛵', word: 'סירה',   letter: 'ס' },
+  { emoji: '🚆', word: 'רכבת',   letter: 'ר' },
+  { emoji: '👕', word: 'חולצה',  letter: 'ח' },
+  { emoji: '👖', word: 'מכנסיים',letter: 'מ' },
+  { emoji: '👟', word: 'נעליים', letter: 'נ' },
+  { emoji: '👒', word: 'כובע',   letter: 'כ' },
+  { emoji: '📱', word: 'טלפון',  letter: 'ט' },
+  { emoji: '📺', word: 'טלוויזיה',letter: 'ט' },
+  { emoji: '📷', word: 'מצלמה',  letter: 'מ' },
+  { emoji: '📚', word: 'ספר',    letter: 'ס' },
+  { emoji: '✏️',  word: 'עיפרון', letter: 'ע' },
+  { emoji: '⚽', word: 'כדור',   letter: 'כ' },
+  { emoji: '🎸', word: 'גיטרה',  letter: 'ג' },
+  { emoji: '🥁', word: 'תוף',    letter: 'ת' },
+  { emoji: '🎈', word: 'בלון',   letter: 'ב' },
+  { emoji: '☂️',  word: 'מטרייה', letter: 'מ' },
+];
+
+// All Hebrew letters used for distractors
+const ALL_LETTERS = ['א','ב','ג','ד','ה','ו','ז','ח','ט','י','כ','ל','מ','נ','ס','ע','פ','צ','ק','ר','ש','ת'];
+
+// Visually-confusing letter pairs — used to make hard levels harder
+const CONFUSE_PAIRS = {
+  'ב': ['כ','ה'], 'כ': ['ב','ר'], 'ה': ['ח','ב'], 'ח': ['ה','ת'],
+  'ד': ['ר','ז'], 'ר': ['ד','כ'], 'ז': ['ו','נ','ד'], 'ו': ['ז','נ','י'],
+  'ת': ['ח','ה'], 'מ': ['ט'], 'ט': ['מ','ע'], 'ע': ['ש','ט'],
+  'ש': ['ע','ם'], 'ל': ['א'], 'א': ['ל'], 'נ': ['ז','ו'],
+  'ס': ['ם','ע'], 'פ': ['ק'], 'ק': ['פ','ר'], 'צ': ['ע'],
+  'י': ['ו'], 'ג': ['ז'],
+};
+
+const LEVELS = [
+  { choices: 2, confuse: false },
+  { choices: 3, confuse: false },
+  { choices: 3, confuse: true  },
+  { choices: 4, confuse: true  },
+  { choices: 5, confuse: true  },
+];
+
+const SUCCESSES_TO_ADVANCE = 3;
+const MISSES_TO_DESCEND = 5;
+const RESULT_MS = 1000;
+const INACTIVITY_MS = 120000;
+const AUTO_END_MS = 10000;
+
+const targetEl = document.getElementById('target');
+const targetLabelEl = document.getElementById('target-label');
+const choicesEl = document.getElementById('choices');
+const choicesWrap = document.getElementById('choices-wrap');
+const targetWrap = document.getElementById('target-wrap');
+const numChoicesEl = document.getElementById('num-choices');
+const progressEl = document.getElementById('progress');
+const statusEl = document.getElementById('status');
+const btnReset = document.getElementById('btn-reset');
+
+let levelIdx = 0;
+let successCount = 0;
+let missStreak = 0;
+let state = 'idle';
+let cards = [];
+let correctLetter = null;
+let correctIdx = -1;
+let lastCorrectIdx = -1;
+let lastWordIdx = -1;
+let inactivityTimer = null;
+
+function pick(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+function shuffle(arr) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]];
+  }
+  return arr;
+}
+
+// --- Audio ---
+let audioCtx = null;
+function getAudio() {
+  if (!audioCtx) {
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (AC) { audioCtx = new AC(); try { const _o=audioCtx.createOscillator(); const _g=audioCtx.createGain(); _g.gain.value=0; _o.connect(_g).connect(audioCtx.destination); _o.start(); _o.stop(audioCtx.currentTime+0.002); } catch(_){} }
+  }
+  if (audioCtx && audioCtx.state === 'suspended') audioCtx.resume();
+  return audioCtx;
+}
+function tone({ freq = 800, type = 'sine', duration = 0.1, volume = 0.15, startOffset = 0, freqEnd = null }) {
+  const ac = getAudio();
+  if (!ac) return;
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.type = type;
+  const t0 = ac.currentTime + startOffset;
+  osc.frequency.setValueAtTime(freq, t0);
+  if (freqEnd !== null) osc.frequency.linearRampToValueAtTime(freqEnd, t0 + duration);
+  gain.gain.setValueAtTime(0, t0);
+  gain.gain.linearRampToValueAtTime(volume, t0 + 0.01);
+  gain.gain.exponentialRampToValueAtTime(0.0001, t0 + duration);
+  osc.connect(gain).connect(ac.destination);
+  osc.start(t0);
+  osc.stop(t0 + duration + 0.02);
+}
+function playSuccess() {
+  tone({ freq: 523.25, type: 'sine', duration: 0.13, volume: 0.16 });
+  tone({ freq: 659.25, type: 'sine', duration: 0.14, volume: 0.16, startOffset: 0.1 });
+}
+function playError() { tone({ freq: 260, freqEnd: 150, type: 'sawtooth', duration: 0.3, volume: 0.13 }); }
+function playLevelUp() {
+  [523.25, 659.25, 783.99, 1046.5].forEach((f, i) => {
+    tone({ freq: f, type: 'sine', duration: 0.18, volume: 0.18, startOffset: i * 0.1 });
+  });
+}
+
+// --- Layout ---
+function layoutBoard() {
+  const wrapH = choicesWrap.clientHeight;
+  const wrapW = choicesWrap.clientWidth;
+  if (wrapH === 0 || wrapW === 0) return;
+
+  const n = LEVELS[levelIdx].choices;
+  const gap = 16;
+  const availW = wrapW - gap * (n - 1) - 16;
+  const availH = wrapH - 16;
+  let cardSize = Math.floor(Math.min(availW / n, availH));
+  cardSize = Math.max(80, Math.min(180, cardSize));
+
+  // Target — slightly larger than cards
+  const targetH = targetWrap.clientHeight;
+  const targetSize = Math.max(100, Math.min(targetH - 40, cardSize + 20, 180));
+
+  targetEl.style.setProperty('--target-size', targetSize + 'px');
+  choicesEl.style.setProperty('--gap', gap + 'px');
+  cards.forEach(c => { c.style.setProperty('--card-size', cardSize + 'px'); });
+}
+
+// --- Rendering ---
+function renderChoices(letters) {
+  choicesEl.innerHTML = '';
+  cards = [];
+  letters.forEach((letter, i) => {
+    const card = document.createElement('div');
+    card.className = 'card';
+    card.textContent = letter;
+    card.addEventListener('click', () => onCardClick(i));
+    choicesEl.appendChild(card);
+    cards.push(card);
+  });
+}
+
+// --- Round flow ---
+function pickWord() {
+  let idx;
+  do { idx = Math.floor(Math.random() * WORDS.length); } while (idx === lastWordIdx && WORDS.length > 1);
+  lastWordIdx = idx;
+  return WORDS[idx];
+}
+
+function startRound() {
+  const { choices: n, confuse } = LEVELS[levelIdx];
+  updateInfo();
+
+  const w = pickWord();
+  correctLetter = w.letter;
+  targetEl.textContent = w.emoji;
+  targetLabelEl.textContent = w.word;
+
+  // Build distractor letters
+  let distractors = [];
+  if (confuse && CONFUSE_PAIRS[correctLetter]) {
+    distractors = shuffle([...CONFUSE_PAIRS[correctLetter]]).filter(l => l !== correctLetter);
+  }
+  // Fill remaining with random distinct letters
+  const remaining = shuffle(ALL_LETTERS.filter(l => l !== correctLetter && !distractors.includes(l)));
+  while (distractors.length < n - 1) {
+    distractors.push(remaining.shift());
+  }
+  distractors = distractors.slice(0, n - 1);
+
+  let allLetters = shuffle([correctLetter, ...distractors]);
+  let newCorrectIdx = allLetters.indexOf(correctLetter);
+  // Avoid same position twice in a row
+  if (newCorrectIdx === lastCorrectIdx && allLetters.length > 1) {
+    let swapIdx;
+    do { swapIdx = Math.floor(Math.random() * allLetters.length); } while (swapIdx === newCorrectIdx);
+    [allLetters[newCorrectIdx], allLetters[swapIdx]] = [allLetters[swapIdx], allLetters[newCorrectIdx]];
+    newCorrectIdx = swapIdx;
+  }
+  correctIdx = newCorrectIdx;
+  lastCorrectIdx = correctIdx;
+
+  renderChoices(allLetters);
+  requestAnimationFrame(layoutBoard);
+  statusEl.textContent = 'בחר את האות הראשונה';
+  state = 'guessing';
+  resetInactivity();
+}
+
+function onCardClick(idx) {
+  if (state !== 'guessing') return;
+  getAudio();
+  resetInactivity();
+  state = 'result';
+
+  if (idx === correctIdx) {
+    cards[idx].classList.add('correct');
+    playSuccess();
+    successCount++;
+    missStreak = 0;
+    updateInfo();
+    const isLast = levelIdx === LEVELS.length - 1;
+    if (!isLast && successCount >= SUCCESSES_TO_ADVANCE) {
+      setTimeout(advanceLevel, RESULT_MS);
+    } else {
+      statusEl.textContent = 'נכון!';
+      setTimeout(() => {
+        cards[idx].classList.remove('correct');
+        startRound();
+      }, RESULT_MS);
+    }
+  } else {
+    cards[idx].classList.add('wrong');
+    cards[correctIdx].classList.add('correct');
+    playError();
+    missStreak++;
+    statusEl.textContent = 'לא נכון, מנסים שוב';
+    setTimeout(() => {
+      cards[idx].classList.remove('wrong');
+      cards[correctIdx].classList.remove('correct');
+      if (missStreak >= MISSES_TO_DESCEND && levelIdx > 0) {
+        levelIdx--;
+        successCount = 0;
+        missStreak = 0;
+        lastCorrectIdx = -1;
+      }
+      startRound();
+    }, RESULT_MS + 400);
+  }
+}
+
+function advanceLevel() {
+  levelIdx++;
+  successCount = 0;
+  missStreak = 0;
+  lastCorrectIdx = -1;
+  playLevelUp();
+  startRound();
+}
+
+function updateInfo() {
+  numChoicesEl.textContent = LEVELS[levelIdx].choices;
+  const isLast = levelIdx === LEVELS.length - 1;
+  progressEl.textContent = isLast ? `${successCount}` : `${successCount}/${SUCCESSES_TO_ADVANCE}`;
+}
+
+btnReset.addEventListener('click', () => {
+  getAudio();
+  resetInactivity();
+  levelIdx = 0;
+  successCount = 0;
+  missStreak = 0;
+  lastCorrectIdx = -1;
+  lastWordIdx = -1;
+  startRound();
+});
+
+window.addEventListener('resize', layoutBoard);
+
+startRound();
+
+// --- Inactivity ---
+function resetInactivity() {
+  clearTimeout(inactivityTimer);
+  if (state === 'guessing' || state === 'result') {
+    inactivityTimer = setTimeout(showInactivityDialog, INACTIVITY_MS);
+  }
+}
+function showInactivityDialog() {
+  if (state === 'paused' || state === 'ended') return;
+  const prev = state;
+  state = 'paused';
+  const o = document.createElement('div');
+  o.className = 'end-overlay';
+  o.innerHTML = '<div class="end-modal"><h2>להמשיך לשחק?</h2><p>2 דקות ללא פעילות</p><div class="ebtns"><button class="yes">כן, להמשיך</button><button class="no">לא, לסיים</button></div></div>';
+  let to;
+  const cleanup = (choice) => {
+    if (to) { clearTimeout(to); to = null; }
+    if (o.parentNode) o.remove();
+    if (choice === 'yes') { state = prev; resetInactivity(); }
+    else endGame();
+  };
+  o.querySelector('.yes').addEventListener('click', () => cleanup('yes'));
+  o.querySelector('.no').addEventListener('click', () => cleanup('no'));
+  to = setTimeout(() => cleanup('no'), AUTO_END_MS);
+  document.body.appendChild(o);
+}
+
+// --- End-game ---
+function confirmEndGame() {
+  clearTimeout(inactivityTimer);
+  const prev = state;
+  state = 'paused';
+  const overlay = document.createElement('div');
+  overlay.className = 'end-overlay';
+  overlay.innerHTML = '<div class="end-modal"><h2>לסיים את המשחק?</h2><div class="ebtns"><button class="yes">כן</button><button class="no">לא</button></div></div>';
+  overlay.querySelector('.yes').addEventListener('click', () => { overlay.remove(); endGame(); });
+  overlay.querySelector('.no').addEventListener('click', () => {
+    overlay.remove();
+    state = prev;
+    resetInactivity();
+  });
+  document.body.appendChild(overlay);
+}
+function endGame() {
+  clearTimeout(inactivityTimer);
+  state = 'ended';
+  document.body.innerHTML = '<div class="goodbye"><div class="wave">👋</div><div class="text">להתראות!</div></div>';
+  setTimeout(() => { location.href = 'index.html'; }, 1500);
+}
+document.getElementById('btn-end').addEventListener('click', confirmEndGame);
+</script>
+</body>
+</html>
